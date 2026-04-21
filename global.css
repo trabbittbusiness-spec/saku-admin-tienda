@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Web overrides to ensure root spans full height */
+#root {
+    height: 100vh;
+    display: flex;
+    flex: 1;
+}
+
+body {
+    height: 100%;
+    background-color: #ffffff;
+}
+
+@font-face {
+  font-family: 'FontAwesome';
+  src: url('/fonts/FontAwesome.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Ionicons';
+  src: url('/fonts/Ionicons.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Material Design Icons';
+  src: url('/fonts/MaterialCommunityIcons.ttf') format('truetype');
+}
