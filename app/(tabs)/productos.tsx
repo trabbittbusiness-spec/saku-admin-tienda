@@ -16,7 +16,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { collection, query, onSnapshot, orderBy } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import ProductTypeSelectorModal from '../../components/ProductTypeSelectorModal';
 
 // Mock remains for reference or fallback if needed during transition
 const CATEGORIES = ['Todos', 'Alimento', 'Snacks', 'Accesorios', 'Higiene', 'Juguetes'];
@@ -51,7 +50,7 @@ export default function ProductosScreen() {
   const [activeCategory, setActiveCategory] = useState('Todos');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [showTypeSelector, setShowTypeSelector] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
 
   // Dynamic Grid calculation
   const gap = 16;
@@ -122,7 +121,7 @@ export default function ProductosScreen() {
             </View>
             
             <View style={ds.headerActions}>
-              <View style={ds.headerSearch}>
+              <View style={[ds.headerSearch, isSearchFocused && ds.headerSearchFocused]}>
                 <Ionicons name="search-outline" size={18} color="#94A3B8" />
                 <TextInput
                   style={ds.searchInput}
@@ -130,45 +129,36 @@ export default function ProductosScreen() {
                   placeholderTextColor="#94A3B8"
                   value={search}
                   onChangeText={changeSearch}
+                  onFocus={() => setIsSearchFocused(true)}
+                  onBlur={() => setIsSearchFocused(false)}
                 />
-                {search.length > 0 && (
-                  <TouchableOpacity onPress={() => changeSearch('')} activeOpacity={0.7}>
-                    <Ionicons name="close-circle" size={18} color="#94A3B8" />
-                  </TouchableOpacity>
-                )}
               </View>
+
+              <View style={ds.headerChips}>
+                {CATEGORIES.map((cat) => {
+                  const isActive = activeCategory === cat;
+                  return (
+                    <TouchableOpacity
+                      key={cat}
+                      style={[ds.catChip, isActive && ds.catChipActive]}
+                      onPress={() => changeFilter(cat)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[ds.catText, isActive && ds.catTextActive]}>{cat}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
               <TouchableOpacity
                 style={ds.addBtn}
                 activeOpacity={0.85}
-                onPress={() => setShowTypeSelector(true)}
+                onPress={() => router.push('/nuevo-producto/general')}
               >
                 <Ionicons name="add" size={20} color="#fff" />
-                <Text style={ds.addBtnText}>Agregar producto</Text>
+                <Text style={ds.addBtnText}>Agregar</Text>
               </TouchableOpacity>
             </View>
-          </View>
-
-          {/* ── Toolbar ── */}
-          <View style={ds.toolbar}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={ds.catRow}>
-              {CATEGORIES.map((cat) => {
-                const isActive = activeCategory === cat;
-                return (
-                  <TouchableOpacity
-                    key={cat}
-                    style={[ds.catChip, isActive && ds.catChipActive]}
-                    onPress={() => changeFilter(cat)}
-                    activeOpacity={0.8}
-                  >
-                    {isActive 
-                      ? <Ionicons name="checkmark" size={13} color="#fff" />
-                      : (cat !== 'Todos' && <Ionicons name={CAT_ICONS[cat]} size={13} color="#64748B" />)
-                    }
-                    <Text style={[ds.catText, isActive && ds.catTextActive]}>{cat}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
           </View>
 
           {/* ── Grid ── */}
@@ -263,7 +253,6 @@ export default function ProductosScreen() {
             </View>
           )}
         </ScrollView>
-        <ProductTypeSelectorModal visible={showTypeSelector} onClose={() => setShowTypeSelector(false)} />
       </View>
     );
   }
@@ -275,7 +264,7 @@ export default function ProductosScreen() {
     <SafeAreaView style={ms.bg} edges={['top']}>
       {/* Header */}
       <View style={ms.header}>
-        <View style={ms.headerSearch}>
+        <View style={[ms.headerSearch, isSearchFocused && ms.headerSearchFocused]}>
           <Ionicons name="search-outline" size={16} color="#94A3B8" />
           <TextInput
             style={ms.searchInput}
@@ -283,6 +272,8 @@ export default function ProductosScreen() {
             placeholderTextColor="#94A3B8"
             value={search}
             onChangeText={changeSearch}
+            onFocus={() => setIsSearchFocused(true)}
+            onBlur={() => setIsSearchFocused(false)}
           />
           {search.length > 0 && (
             <TouchableOpacity onPress={() => changeSearch('')} activeOpacity={0.7}>
@@ -293,7 +284,7 @@ export default function ProductosScreen() {
         <TouchableOpacity
           style={ms.addBtn}
           activeOpacity={0.8}
-          onPress={() => setShowTypeSelector(true)}
+          onPress={() => router.push('/nuevo-producto/general')}
         >
           <Ionicons name="add" size={20} color="#fff" />
           <Text style={ms.addBtnText}>Agregar</Text>
@@ -399,7 +390,6 @@ export default function ProductosScreen() {
           </View>
         )}
       </ScrollView>
-      <ProductTypeSelectorModal visible={showTypeSelector} onClose={() => setShowTypeSelector(false)} from="/productos" />
     </SafeAreaView>
   );
 }
@@ -410,7 +400,7 @@ export default function ProductosScreen() {
 const ds = StyleSheet.create({
   bg: { flex: 1, backgroundColor: '#ffffff' },
   scroll: { flex: 1 },
-  content: { padding: 32, paddingBottom: 60, width: '100%' },
+  content: { paddingHorizontal: 40, paddingTop: 32, paddingBottom: 60, width: '100%' },
 
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
   pageTitle: { fontSize: 26, fontWeight: '900', color: '#0F172A', letterSpacing: -1 },
@@ -418,15 +408,15 @@ const ds = StyleSheet.create({
   addBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#10B981', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, shadowColor: '#10B981', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 6 },
   addBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  headerSearch: { width: 280, flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: '#E2E8F0', gap: 8 },
-  searchInput: { flex: 1, fontSize: 14, color: '#0F172A', outlineWidth: 0 } as any,
-  toolbar: { backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: '#F1F5F9', padding: 10, marginBottom: 24 },
-  catRow: { flexDirection: 'row', gap: 10 },
-  catChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16, backgroundColor: '#fff', borderWidth: 1, borderColor: '#E2E8F0' },
-  catChipActive: { backgroundColor: '#6366F1', borderColor: '#6366F1' },
-  catText: { fontSize: 12, fontWeight: '600', color: '#64748B' },
-  catTextActive: { color: '#fff', fontWeight: '800' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  headerSearch: { width: 220, flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: '#E2E8F0', gap: 8 },
+  headerSearchFocused: { borderColor: '#10B981', shadowColor: '#10B981', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.1, shadowRadius: 10, backgroundColor: '#fff' },
+  headerChips: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  catChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, backgroundColor: '#fff', borderWidth: 1, borderColor: '#E2E8F0' },
+  catChipActive: { backgroundColor: '#10B981', borderColor: '#10B981' },
+  catText: { fontSize: 12, fontWeight: '700', color: '#64748B' },
+  catTextActive: { color: '#fff' },
+  searchInput: { flex: 1, fontSize: 14, color: '#0F172A', outlineStyle: 'none' } as any,
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
   card: { width: '15.8%', backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: '#F1F5F9', overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.02, shadowRadius: 10 },
   statusBadge: { position: 'absolute', top: 8, right: 8, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6, zIndex: 10 },
@@ -464,7 +454,8 @@ const ms = StyleSheet.create({
   
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, gap: 10 },
   headerSearch: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 9, borderWidth: 1, borderColor: '#E2E8F0', gap: 8 },
-  searchInput: { flex: 1, fontSize: 14, color: '#0F172A', outlineWidth: 0 } as any,
+  headerSearchFocused: { borderColor: '#10B981', shadowColor: '#10B981', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.1, shadowRadius: 8, backgroundColor: '#fff' },
+  searchInput: { flex: 1, fontSize: 14, color: '#0F172A', outlineStyle: 'none' } as any,
   addBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#10B981', paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12 },
   addBtnText: { color: '#fff', fontWeight: '800', fontSize: 13 },
 
@@ -476,7 +467,7 @@ const ms = StyleSheet.create({
   catTextActive: { color: '#fff', fontWeight: '800' },
 
   listScroll: { flex: 1 },
-  listContent: { paddingHorizontal: 20, paddingBottom: 100, gap: 12 },
+  listContent: { paddingHorizontal: 24, paddingBottom: 100, gap: 12 },
 
   card: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#F1F5F9', overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.03, shadowRadius: 8 },
   accentBar: { width: 3 },

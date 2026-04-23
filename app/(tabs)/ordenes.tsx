@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
-  TextInput, useWindowDimensions, Platform, ActivityIndicator
+  TextInput, useWindowDimensions, Platform, ActivityIndicator, Image, Animated, Easing
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { collection, query, onSnapshot, orderBy, Timestamp } from 'firebase/firestore';
@@ -29,7 +30,7 @@ const formatDate = (ts: any) => {
 
 // Map DB status to UI status
 const mapToUIStatus = (dbStatus: string) => {
-  if (dbStatus === 'Procesando' || dbStatus === 'En camino') return 'En proceso';
+  if (dbStatus === 'Procesando' || dbStatus === 'En camino' || dbStatus === 'pendiente') return 'En proceso';
   return dbStatus || 'En proceso';
 };
 
@@ -37,11 +38,7 @@ const mapToUIStatus = (dbStatus: string) => {
 function OrderDetailPanel({ order, onClose }: { order: any; onClose: () => void }) {
   const cfg = STATUS_CONFIG[order.status] ?? STATUS_CONFIG['En proceso'];
   
-  const ITEMS_MOCK = [
-    { name: 'Alimento Premium Perro', qty: 1, price: '$320', image: '🐶' },
-    { name: 'Juguete Mordedor', qty: 2, price: '$130', image: '🦴' },
-    { name: 'Vitaminas Caninas', qty: 1, price: '$180', image: '💊' },
-  ].slice(0, order.items);
+  const itemsList = order.products || [];
 
   return (
     <View style={detail.container}>
@@ -104,14 +101,20 @@ function OrderDetailPanel({ order, onClose }: { order: any; onClose: () => void 
         {/* Products */}
         <View style={detail.section}>
           <Text style={detail.sectionTitle}>PRODUCTOS ({order.items})</Text>
-          {ITEMS_MOCK.map((item, i) => (
+          {itemsList.map((item: any, i: number) => (
             <View key={i} style={detail.productRow}>
-              <View style={detail.productEmoji}><Text style={{ fontSize: 22 }}>{item.image}</Text></View>
-              <View style={{ flex: 1 }}>
-                <Text style={detail.productName}>{item.name}</Text>
-                <Text style={detail.productQty}>Qty: {item.qty}</Text>
+              <View style={detail.productEmoji}>
+                {item.foto ? (
+                  <Image source={{ uri: item.foto }} style={{ width: 30, height: 30, borderRadius: 6 }} resizeMode="contain" />
+                ) : (
+                  <Text style={{ fontSize: 20 }}>📦</Text>
+                )}
               </View>
-              <Text style={detail.productPrice}>{item.price}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={detail.productName}>{item.nombre}</Text>
+                <Text style={detail.productQty}>Cant: {item.cantidad} · {item.medida}</Text>
+              </View>
+              <Text style={detail.productPrice}>${(item.precio || 0).toLocaleString()}</Text>
             </View>
           ))}
         </View>
@@ -143,6 +146,147 @@ function OrderDetailPanel({ order, onClose }: { order: any; onClose: () => void 
   );
 }
 
+// ─── Scanner Modal ──────────────────────────────────────
+function ScannerModal({ visible, onClose, onScan }: { visible: boolean; onClose: () => void; onScan: (id: string) => void }) {
+  const [permission, requestPermission] = useCameraPermissions();
+  const [scanned, setScanned] = useState(false);
+  const scanLineAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      if (!permission?.granted) requestPermission();
+      
+      // Start scanning line animation
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(scanLineAnim, { toValue: 260, duration: 2000, easing: Easing.linear, useNativeDriver: true }),
+          Animated.timing(scanLineAnim, { toValue: 0, duration: 2000, easing: Easing.linear, useNativeDriver: true })
+        ])
+      ).start();
+    } else {
+      scanLineAnim.setValue(0);
+    }
+  }, [visible]);
+
+  if (!visible) return null;
+
+  return (
+    <View style={StyleSheet.absoluteFill}>
+      <View style={{ flex: 1, backgroundColor: '#000' }}>
+        {permission?.granted ? (
+          <CameraView
+            style={StyleSheet.absoluteFill}
+            onBarcodeScanned={scanned ? undefined : ({ data }) => {
+              setScanned(true);
+              onScan(data);
+              setTimeout(() => setScanned(false), 3000);
+            }}
+          >
+            {/* Viewfinder Overlay */}
+            <View style={scanner.overlay}>
+              <View style={scanner.unfocused} />
+              <View style={{ flexDirection: 'row' }}>
+                <View style={scanner.unfocused} />
+                <View style={scanner.viewfinder}>
+                  {/* Corners */}
+                  <View style={[scanner.corner, { top: 0, left: 0, borderTopWidth: 4, borderLeftWidth: 4 }]} />
+                  <View style={[scanner.corner, { top: 0, right: 0, borderTopWidth: 4, borderRightWidth: 4 }]} />
+                  <View style={[scanner.corner, { bottom: 0, left: 0, borderBottomWidth: 4, borderLeftWidth: 4 }]} />
+                  <View style={[scanner.corner, { bottom: 0, right: 0, borderBottomWidth: 4, borderRightWidth: 4 }]} />
+                  
+                  {/* Scanning Line */}
+                  <Animated.View style={[scanner.line, { transform: [{ translateY: scanLineAnim }] }]} />
+                </View>
+                <View style={scanner.unfocused} />
+              </View>
+              <View style={scanner.unfocused}>
+                <Text style={scanner.hint}>Encuadra el código QR de la orden</Text>
+                <TouchableOpacity style={scanner.closeBtn} onPress={onClose}>
+                  <Text style={scanner.closeText}>Cancelar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </CameraView>
+        ) : (
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 }}>
+            <Ionicons name="camera-outline" size={60} color="#fff" />
+            <Text style={{ color: '#fff', textAlign: 'center', marginTop: 20, fontSize: 16 }}>
+              Necesitamos permiso para usar la cámara y escanear el código.
+            </Text>
+            <TouchableOpacity style={scanner.permBtn} onPress={requestPermission}>
+              <Text style={scanner.permText}>Dar permiso</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={{ marginTop: 20 }} onPress={onClose}>
+              <Text style={{ color: '#94A3B8' }}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+    </View>
+  );
+}
+
+// ─── Processing Modal ──────────────────────────────────
+function ProcessingModal({ visible, type = 'loading' }: { visible: boolean; type?: 'loading' | 'success' | 'error' }) {
+  const scale = useRef(new Animated.Value(0.8)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.spring(scale, { toValue: 1, tension: 50, friction: 7, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 1, duration: 300, useNativeDriver: true })
+      ]).start();
+    } else {
+      scale.setValue(0.8);
+      opacity.setValue(0);
+    }
+  }, [visible]);
+
+  if (!visible) return null;
+
+  return (
+    <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,255,255,0.95)', justifyContent: 'center', alignItems: 'center', zIndex: 1000, opacity }]}>
+      <Animated.View style={{ alignItems: 'center', transform: [{ scale }] }}>
+        {type === 'loading' ? (
+          <View style={proc.circle}>
+            <ActivityIndicator size="large" color="#6366F1" />
+          </View>
+        ) : type === 'success' ? (
+          <View style={[proc.circle, { backgroundColor: '#DCFCE7' }]}>
+            <Ionicons name="checkmark" size={40} color="#10B981" />
+          </View>
+        ) : (
+          <View style={[proc.circle, { backgroundColor: '#FEE2E2' }]}>
+            <Ionicons name="close" size={40} color="#EF4444" />
+          </View>
+        )}
+        <Text style={proc.title}>{type === 'loading' ? 'Validando código...' : type === 'success' ? '¡Orden encontrada!' : 'No encontrada'}</Text>
+        <Text style={proc.subtitle}>{type === 'loading' ? 'Conectando con el servidor' : type === 'success' ? 'Abriendo detalles de la orden' : 'Verifica el código e intenta de nuevo'}</Text>
+      </Animated.View>
+    </Animated.View>
+  );
+}
+
+const proc = StyleSheet.create({
+  circle: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center', marginBottom: 20, shadowColor: '#6366F1', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 20 },
+  title: { fontSize: 20, fontWeight: '900', color: '#0F172A', marginBottom: 8 },
+  subtitle: { fontSize: 14, color: '#64748B', fontWeight: '500' },
+});
+
+const scanner = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: 'transparent' },
+  unfocused: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' },
+  viewfinder: { width: 260, height: 260, backgroundColor: 'transparent', overflow: 'hidden' },
+  corner: { position: 'absolute', width: 40, height: 40, borderColor: '#6366F1' },
+  line: { position: 'absolute', left: 0, right: 0, height: 3, backgroundColor: '#6366F1', shadowColor: '#6366F1', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 8 },
+  hint: { color: '#fff', fontWeight: '700', fontSize: 15, marginBottom: 30 },
+  closeBtn: { backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 30, paddingVertical: 14, borderRadius: 100 },
+  closeText: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  permBtn: { backgroundColor: '#6366F1', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, marginTop: 30 },
+  permText: { color: '#fff', fontWeight: '700' },
+});
+
 // ─── Main Screen ────────────────────────────────────────
 export default function OrdenesScreen() {
   const { width } = useWindowDimensions();
@@ -153,6 +297,60 @@ export default function OrdenesScreen() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
+  const [procStatus, setProcStatus] = useState<'none' | 'loading' | 'success' | 'error'>('none');
+
+  const handleScan = async (scannedId: string) => {
+    setShowScanner(false);
+    setProcStatus('loading');
+
+    // Artificial delay for cool animation
+    await new Promise(r => setTimeout(r, 1200));
+
+    // 1. Check local state first
+    const found = orders.find(o => o.id === scannedId || o.displayId === scannedId);
+    if (found) {
+      setProcStatus('success');
+      await new Promise(r => setTimeout(r, 1000));
+      setProcStatus('none');
+      router.push(`/orden/${encodeURIComponent(found.id)}?from=/ordenes` as any);
+      return;
+    }
+
+    // 2. Not found locally, try direct Firestore query
+    try {
+      const { getDoc, doc, collection, query, where, getDocs } = require('firebase/firestore');
+      
+      const docRef = doc(db, 'Orden', scannedId);
+      const docSnap = await getDoc(docRef);
+      
+      if (docSnap.exists()) {
+        setProcStatus('success');
+        await new Promise(r => setTimeout(r, 1000));
+        setProcStatus('none');
+        router.push(`/orden/${encodeURIComponent(docSnap.id)}?from=/ordenes` as any);
+        return;
+      }
+
+      const q = query(collection(db, 'Orden'), where('codigoRetiro', '==', scannedId));
+      const qSnap = await getDocs(q);
+      if (!qSnap.empty) {
+        setProcStatus('success');
+        await new Promise(r => setTimeout(r, 1000));
+        setProcStatus('none');
+        router.push(`/orden/${encodeURIComponent(qSnap.docs[0].id)}?from=/ordenes` as any);
+        return;
+      }
+
+      setProcStatus('error');
+      await new Promise(r => setTimeout(r, 2000));
+      setProcStatus('none');
+    } catch (e) {
+      setProcStatus('error');
+      await new Promise(r => setTimeout(r, 2000));
+      setProcStatus('none');
+    }
+  };
 
   useEffect(() => {
     const q = query(collection(db, 'Orden'), orderBy('fechaCreacion', 'desc'));
@@ -160,17 +358,20 @@ export default function OrdenesScreen() {
       const list = snapshot.docs.map(doc => {
         const data = doc.data();
         return {
-          id: data.ID_orden || doc.id,
-          client: data.nombre || 'Sin nombre',
-          items: (data.listPRODUCTS || []).length,
-          amount: `$${(data.amount || 0).toLocaleString()}`,
+          id: doc.id,
+          displayId: data.codigoRetiro || data.ID_orden || doc.id,
+          client: data.nombre || data.clientName || 'Sin nombre',
+          items: (data.items || []).length,
+          amount: `$${(data.total || 0).toLocaleString()}`,
           status: mapToUIStatus(data.estado),
-          date: formatDate(data.fechaCreacion),
-          address: data.direccion || '',
-          phone: data.numerodetelefono || '',
-          email: '',
-          type: data.direccion ? 'delivery' : 'pickup',
-          note: data.puntodereferencia || '',
+          date: formatDate(data.timestamp || data.fechaCreacion),
+          address: data.direccion?.texto || data.direccion?.main || 'Retiro en Sucursal',
+          phone: data.telefono || data.numerodetelefono || '',
+          email: data.email || '',
+          type: data.tipoEntrega === 'home' ? 'delivery' : 'pickup',
+          note: data.puntoReferencia || data.puntodereferencia || '',
+          products: data.items || [],
+          payment: data.metodoPago || 'cash'
         };
       });
       setOrders(list);
@@ -181,7 +382,12 @@ export default function OrdenesScreen() {
 
   const filtered = orders.filter((o) => {
     const matchFilter = o.status === activeFilter;
-    const matchSearch = search === '' || o.id.toLowerCase().includes(search.toLowerCase()) || o.client.toLowerCase().includes(search.toLowerCase());
+    const searchLower = search.toLowerCase();
+    const matchSearch = search === '' || 
+      o.displayId.toLowerCase().includes(searchLower) || 
+      o.client.toLowerCase().includes(searchLower) ||
+      o.email.toLowerCase().includes(searchLower) ||
+      o.phone.toLowerCase().includes(searchLower);
     return matchFilter && matchSearch;
   });
 
@@ -193,7 +399,7 @@ export default function OrdenesScreen() {
 
   // ── CHOICE CHIPS BAR (shared) ──────────────────────
   const FilterChips = () => (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
       {FILTERS.map((f) => {
         const count = orders.filter(o => o.status === f).length;
         const active = activeFilter === f;
@@ -206,7 +412,7 @@ export default function OrdenesScreen() {
           </TouchableOpacity>
         );
       })}
-    </ScrollView>
+    </View>
   );
 
   // ── LOADING ───────────────────────────────────────
@@ -231,16 +437,18 @@ export default function OrdenesScreen() {
                 <Text style={ds.pageTitle}>Gestión de Órdenes</Text>
                 <Text style={ds.pageSubtitle}>Listado completo de pedidos y operaciones de la tienda.</Text>
               </View>
-              <TouchableOpacity style={ds.codeBtn} activeOpacity={0.8}>
-                <Ionicons name="keypad" size={18} color="#fff" />
-                <Text style={ds.codeBtnText}>Código Manual</Text>
-              </TouchableOpacity>
+              {!isDesktop && (
+                <TouchableOpacity style={ms.qrBtn} activeOpacity={0.8} onPress={() => setShowScanner(true)}>
+                  <Ionicons name="qr-code-outline" size={20} color="#fff" />
+                  <Text style={ms.qrBtnText}>Escanear QR</Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* Control Bar */}
             <View style={ds.controlBar}>
-              <View style={[ds.searchBox, isSearchFocused && { borderColor: '#6366F1', shadowColor: '#6366F1', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.1, shadowRadius: 8 }]}>
-                <Ionicons name="search-outline" size={18} color={isSearchFocused ? '#6366F1' : '#94A3B8'} />
+              <View style={[ds.searchBox, isSearchFocused && ds.searchBoxFocused]}>
+                <Ionicons name="search-outline" size={18} color="#94A3B8" />
                 <TextInput
                   style={ds.searchInput}
                   placeholder="Buscar cliente o ID..."
@@ -276,7 +484,7 @@ export default function OrdenesScreen() {
                     <View style={{ flex: 1.5 }}><Text style={ds.td}>{order.date}</Text></View>
                     <View style={{ flex: 2, paddingRight: 12 }}>
                       <Text style={ds.tdBold}>{order.client}</Text>
-                      <Text style={ds.tdSub} numberOfLines={1}>{order.address}</Text>
+                      <Text style={ds.tdSub}>ID: {order.displayId} · {order.address}</Text>
                     </View>
                     <View style={{ flex: 1.2 }}>
                       <Text style={ds.tdBold}>{order.amount}</Text>
@@ -326,7 +534,7 @@ export default function OrdenesScreen() {
       {/* Top Header */}
       <View style={ms.topHeader}>
         <Text style={ms.mobileTitle}>Órdenes</Text>
-        <TouchableOpacity style={ms.qrBtn} activeOpacity={0.8}>
+        <TouchableOpacity style={ms.qrBtn} activeOpacity={0.8} onPress={() => setShowScanner(true)}>
           <Ionicons name="qr-code-outline" size={20} color="#fff" />
           <Text style={ms.qrBtnText}>Escanear QR</Text>
         </TouchableOpacity>
@@ -334,8 +542,8 @@ export default function OrdenesScreen() {
 
       {/* Search */}
       <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
-        <View style={[ms.searchBox, isSearchFocused && { borderColor: '#6366F1', shadowColor: '#6366F1', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.1, shadowRadius: 8 }]}>
-          <Ionicons name="search-outline" size={20} color={isSearchFocused ? '#6366F1' : '#94A3B8'} />
+        <View style={[ms.searchBox, isSearchFocused && ms.searchBoxFocused]}>
+          <Ionicons name="search-outline" size={20} color="#94A3B8" />
           <TextInput
             style={ms.searchInput}
             placeholder="Buscar ID de orden o cliente..."
@@ -351,7 +559,20 @@ export default function OrdenesScreen() {
 
       {/* Filter Chips */}
       <View style={{ marginBottom: 12, paddingLeft: 20 }}>
-        <FilterChips />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+          {FILTERS.map((f) => {
+            const count = orders.filter(o => o.status === f).length;
+            const active = activeFilter === f;
+            return (
+              <TouchableOpacity key={f} style={[chip.pill, active && chip.pillActive]} onPress={() => changeFilter(f)} activeOpacity={0.7}>
+                <Text style={[chip.text, active && chip.textActive]}>{f}</Text>
+                <View style={[chip.badge, { backgroundColor: active ? 'rgba(255,255,255,0.25)' : '#E2E8F0' }]}>
+                  <Text style={[chip.badgeText, { color: active ? '#fff' : '#64748B' }]}>{count}</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
 
       {/* Orders List */}
@@ -366,6 +587,7 @@ export default function OrdenesScreen() {
                     <Ionicons name={cfg.icon} size={18} color={cfg.color} />
                   </View>
                   <View>
+                    <Text style={ms.cardId}>{order.displayId}</Text>
                     <Text style={ms.cardDate}>{order.date}</Text>
                   </View>
                 </View>
@@ -399,6 +621,9 @@ export default function OrdenesScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      <ScannerModal visible={showScanner} onClose={() => setShowScanner(false)} onScan={handleScan} />
+      <ProcessingModal visible={procStatus !== 'none'} type={procStatus === 'none' ? 'loading' : procStatus} />
     </SafeAreaView>
   );
 }
@@ -446,10 +671,10 @@ const ds = StyleSheet.create({
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
   pageTitle: { fontSize: 26, fontWeight: '900', color: '#0F172A', letterSpacing: -0.5, marginBottom: 4 },
   pageSubtitle: { fontSize: 13, color: '#64748B', fontWeight: '500' },
-  codeBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0F172A', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, gap: 8 },
   codeBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  controlBar: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, alignItems: 'center', backgroundColor: '#fff', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#F1F5F9', marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.02, shadowRadius: 8 },
-  searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, width: 280, borderWidth: 1, borderColor: '#E2E8F0', gap: 8 },
+  controlBar: { flexDirection: 'row', gap: 16, alignItems: 'center', backgroundColor: '#fff', padding: 12, borderRadius: 16, borderWidth: 1, borderColor: '#F1F5F9', marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.02, shadowRadius: 8 },
+  searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8, width: 280, borderWidth: 1, borderColor: '#E2E8F0', gap: 8 },
+  searchBoxFocused: { borderColor: '#6366F1', shadowColor: '#6366F1', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.1, shadowRadius: 10, backgroundColor: '#fff' },
   searchInput: { flex: 1, fontSize: 14, color: '#0F172A', outlineStyle: 'none', borderWidth: 0 } as any,
   tableWrap: { backgroundColor: '#fff', borderRadius: 20, borderWidth: 1, borderColor: '#F1F5F9', overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.02, shadowRadius: 12, paddingBottom: 4 },
   tableHeaderRow: { flexDirection: 'row', backgroundColor: '#F8FAFC', paddingVertical: 14, paddingHorizontal: 24, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
@@ -477,6 +702,7 @@ const ms = StyleSheet.create({
   qrBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#6366F1', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 14 },
   qrBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
   searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffffff', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12, borderWidth: 1, borderColor: '#E2E8F0', gap: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.02, shadowRadius: 4 },
+  searchBoxFocused: { borderColor: '#6366F1', shadowColor: '#6366F1', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.1, shadowRadius: 8 },
   searchInput: { flex: 1, fontSize: 15, color: '#0F172A', outlineStyle: 'none', borderWidth: 0 } as any,
   card: { backgroundColor: '#ffffff', borderRadius: 20, padding: 20, borderWidth: 1, borderColor: '#F1F5F9', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.03, shadowRadius: 12 },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 },

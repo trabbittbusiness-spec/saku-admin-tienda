@@ -24,8 +24,9 @@ export default function MobileTabBar({ state, navigation }: BottomTabBarProps) {
 
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom + 4 }]}>
-      {TABS.map((tab, index) => {
-        const isActive = activeIndex === index;
+      {TABS.map((tab) => {
+        const currentRouteName = state.routes[state.index].name;
+        const isActive = currentRouteName === tab.name;
         return (
           <TouchableOpacity
             key={tab.name}

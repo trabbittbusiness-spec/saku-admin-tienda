@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { name: 'productos', label: 'Productos', activeIcon: 'grid',                inactiveIcon: 'grid-outline' },
   { name: 'promocion', label: 'Promoción', activeIcon: 'pricetag',            inactiveIcon: 'pricetag-outline' },
   { name: 'ordenes',   label: 'Órdenes',   activeIcon: 'receipt',             inactiveIcon: 'receipt-outline' },
+  { name: 'publicidad',label: 'Publicidad',activeIcon: 'megaphone',           inactiveIcon: 'megaphone-outline' },
   { name: 'cuenta',    label: 'Mi Cuenta', activeIcon: 'person',              inactiveIcon: 'person-outline' },
 ] as const;
 

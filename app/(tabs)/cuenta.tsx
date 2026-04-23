@@ -109,9 +109,23 @@ export default function CuentaScreen() {
               <View style={[styles.iconWrapper, { backgroundColor: '#DCFCE7' }]}>
                 <Ionicons name="grid-outline" size={24} color="#16A34A" />
               </View>
-              <Text style={styles.itemTitle}>Categorias</Text>
+              <Text style={styles.itemTitle}>Categorias y Marcas</Text>
               <Text style={styles.itemDesc}>Gestión de categorías y filtros.</Text>
             </TouchableOpacity>
+
+            {!isDesktop && (
+              <TouchableOpacity 
+                style={[styles.bentoCard, styles.gridItem]} 
+                activeOpacity={0.7}
+                onPress={() => router.push('/publicidad')}
+              >
+                <View style={[styles.iconWrapper, { backgroundColor: '#F5F3FF' }]}>
+                  <Ionicons name="megaphone-outline" size={24} color="#7C3AED" />
+                </View>
+                <Text style={styles.itemTitle}>Publicidad</Text>
+                <Text style={styles.itemDesc}>Gestión de banners y anuncios.</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
 
@@ -134,8 +148,8 @@ export default function CuentaScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#ffffff' },
   scroll: { flex: 1, backgroundColor: '#ffffff' },
-  content: { padding: 24, paddingBottom: 100 },
-  contentDesktop: { padding: 40, paddingTop: 32, paddingBottom: 60, width: '100%' },
+  content: { paddingHorizontal: 24, paddingVertical: 24, paddingBottom: 100 },
+  contentDesktop: { paddingHorizontal: 40, paddingTop: 32, paddingBottom: 60, width: '100%' },
 
   headerArea: {
     marginBottom: 40,

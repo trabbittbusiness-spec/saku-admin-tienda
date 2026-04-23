@@ -40,6 +40,7 @@ export default function TabsLayout() {
                 'usuarios', 
                 'cupones', 
                 'categorias',
+                'publicidad',
                 'nuevo-producto/[tipo]',
                 'editar-producto/[id]',
                 'orden/[id]',
@@ -53,6 +54,7 @@ export default function TabsLayout() {
             <Tabs.Screen name="productos" />
             <Tabs.Screen name="promocion" />
             <Tabs.Screen name="ordenes" />
+            <Tabs.Screen name="publicidad" options={{ href: null }} />
             <Tabs.Screen name="cuenta" />
             <Tabs.Screen name="configuracion-envio" options={{ href: null }} />
             <Tabs.Screen name="cupones" options={{ href: null }} />

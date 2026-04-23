@@ -51,6 +51,7 @@ export default function PromocionesScreen() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [showTypeSelector, setShowTypeSelector] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
 
   // Dynamic Grid calculation
   const numColumns = width > 1600 ? 6 : width > 1200 ? 5 : width > 1000 ? 4 : 3;
@@ -113,7 +114,7 @@ export default function PromocionesScreen() {
               <Text style={ds.pageSubtitle}>{filtered.length} productos destacados</Text>
             </View>
             <View style={ds.headerActions}>
-              <View style={ds.headerSearch}>
+              <View style={[ds.headerSearch, isSearchFocused && ds.headerSearchFocused]}>
                 <Ionicons name="search-outline" size={18} color="#94A3B8" />
                 <TextInput
                   style={ds.searchInput}
@@ -121,36 +122,27 @@ export default function PromocionesScreen() {
                   placeholderTextColor="#94A3B8"
                   value={search}
                   onChangeText={changeSearch}
+                  onFocus={() => setIsSearchFocused(true)}
+                  onBlur={() => setIsSearchFocused(false)}
                 />
-                {search.length > 0 && (
-                  <TouchableOpacity onPress={() => changeSearch('')} activeOpacity={0.7}>
-                    <Ionicons name="close-circle" size={18} color="#94A3B8" />
-                  </TouchableOpacity>
-                )}
+              </View>
+
+              <View style={ds.headerChips}>
+                {CATEGORIES.map((cat) => {
+                  const isActive = activeCategory === cat;
+                  return (
+                    <TouchableOpacity
+                      key={cat}
+                      style={[ds.catChip, isActive && ds.catChipActive]}
+                      onPress={() => changeFilter(cat)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[ds.catText, isActive && ds.catTextActive]}>{cat}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </View>
-          </View>
-
-          <View style={ds.toolbar}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={ds.catRow}>
-              {CATEGORIES.map((cat) => {
-                const isActive = activeCategory === cat;
-                return (
-                  <TouchableOpacity
-                    key={cat}
-                    style={[ds.catChip, isActive && ds.catChipActive]}
-                    onPress={() => changeFilter(cat)}
-                    activeOpacity={0.8}
-                  >
-                    {isActive 
-                      ? <Ionicons name="checkmark" size={13} color="#fff" />
-                      : (cat !== 'Todos' && <Ionicons name={CAT_ICONS[cat]} size={13} color="#64748B" />)
-                    }
-                    <Text style={[ds.catText, isActive && ds.catTextActive]}>{cat}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
           </View>
 
           <View style={ds.grid}>
@@ -235,7 +227,7 @@ export default function PromocionesScreen() {
   return (
     <SafeAreaView style={ms.bg} edges={['top']}>
       <View style={ms.header}>
-        <View style={ms.headerSearch}>
+        <View style={[ms.headerSearch, isSearchFocused && ms.headerSearchFocused]}>
           <Ionicons name="search-outline" size={16} color="#94A3B8" />
           <TextInput
             style={ms.searchInput}
@@ -243,6 +235,8 @@ export default function PromocionesScreen() {
             placeholderTextColor="#94A3B8"
             value={search}
             onChangeText={changeSearch}
+            onFocus={() => setIsSearchFocused(true)}
+            onBlur={() => setIsSearchFocused(false)}
           />
           {search.length > 0 && (
             <TouchableOpacity onPress={() => changeSearch('')} activeOpacity={0.7}>
@@ -345,15 +339,15 @@ const ds = StyleSheet.create({
   pageSubtitle: { fontSize: 13, color: '#64748B', fontWeight: '500', marginTop: 4 },
   addBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#F59E0B', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, shadowColor: '#F59E0B', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 6 },
   addBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  headerSearch: { width: 280, flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: '#E2E8F0', gap: 8 },
-  searchInput: { flex: 1, fontSize: 14, color: '#0F172A', outlineWidth: 0 } as any,
-  toolbar: { backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: '#F1F5F9', padding: 10, marginBottom: 24 },
-  catRow: { flexDirection: 'row', gap: 10 },
-  catChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16, backgroundColor: '#fff', borderWidth: 1, borderColor: '#E2E8F0' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  headerSearch: { width: 220, flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: '#E2E8F0', gap: 8 },
+  headerSearchFocused: { borderColor: '#F59E0B', shadowColor: '#F59E0B', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.1, shadowRadius: 10, backgroundColor: '#fff' },
+  headerChips: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  catChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, backgroundColor: '#fff', borderWidth: 1, borderColor: '#E2E8F0' },
   catChipActive: { backgroundColor: '#F59E0B', borderColor: '#F59E0B' },
-  catText: { fontSize: 12, fontWeight: '600', color: '#64748B' },
-  catTextActive: { color: '#fff', fontWeight: '800' },
+  catText: { fontSize: 12, fontWeight: '700', color: '#64748B' },
+  catTextActive: { color: '#fff' },
+  searchInput: { flex: 1, fontSize: 14, color: '#0F172A', outlineStyle: 'none' } as any,
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
   card: { backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: '#F1F5F9', overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.02, shadowRadius: 10 },
   promoLabel: { backgroundColor: '#F59E0B', position: 'absolute', top: 8, left: 8, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 5, zIndex: 11 },
@@ -389,7 +383,8 @@ const ms = StyleSheet.create({
   bg: { flex: 1, backgroundColor: '#ffffff' },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, gap: 10 },
   headerSearch: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 9, borderWidth: 1, borderColor: '#E2E8F0', gap: 8 },
-  searchInput: { flex: 1, fontSize: 14, color: '#0F172A', outlineWidth: 0 } as any,
+  headerSearchFocused: { borderColor: '#F59E0B', shadowColor: '#F59E0B', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.1, shadowRadius: 8, backgroundColor: '#fff' },
+  searchInput: { flex: 1, fontSize: 14, color: '#0F172A', outlineStyle: 'none' } as any,
   addBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#F59E0B', paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12 },
   addBtnText: { color: '#fff', fontWeight: '800', fontSize: 13 },
   catScroll: { marginBottom: 12, maxHeight: 52 },
