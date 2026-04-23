@@ -63,6 +63,15 @@ export default function PerfilCompletoScreen() {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      router.replace('/');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
   const handlePickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -154,10 +163,11 @@ export default function PerfilCompletoScreen() {
         <View style={[styles.mainGrid, isDesktop && styles.mainGridDesktop]}>
           
           {/* Avatar Section */}
-          <View style={[styles.column, { flex: 0.4 }]}>
-            <View style={styles.section}>
+          <View style={[styles.column, isDesktop && { flex: 0.4 }]}>
+            <View style={[styles.section, isDesktop ? styles.sectionDesktop : null, isDesktop && { flex: 1 }]}>
               <Text style={styles.sectionTitle}>Foto de Perfil</Text>
-              <View style={[styles.card, { alignItems: 'center', paddingVertical: 40 }]}>
+              <View style={[styles.card, { alignItems: 'center', paddingVertical: 40 }, isDesktop && { flex: 1, justifyContent: 'center' }]}>
+
                 <View style={styles.avatarContainer}>
                   {photoURL ? (
                     <Image source={{ uri: photoURL }} style={styles.avatar} />
@@ -171,15 +181,28 @@ export default function PerfilCompletoScreen() {
                   </TouchableOpacity>
                 </View>
                 <Text style={styles.avatarHint}>Sube una foto cuadrada para mejores resultados</Text>
+                
+                {isDesktop && (
+                  <TouchableOpacity 
+                    style={styles.logoutBtn} 
+                    onPress={handleLogout}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+                    <Text style={styles.logoutBtnText}>Cerrar Sesión</Text>
+                  </TouchableOpacity>
+                )}
               </View>
+
             </View>
           </View>
 
           {/* Info Section */}
-          <View style={[styles.column, { flex: 0.6 }]}>
-            <View style={styles.section}>
+          <View style={[styles.column, isDesktop && { flex: 0.6 }]}>
+            <View style={[styles.section, isDesktop ? styles.sectionDesktop : null, isDesktop && { flex: 1 }]}>
               <Text style={styles.sectionTitle}>Datos Personales</Text>
-              <View style={styles.card}>
+              <View style={[styles.card, isDesktop && { flex: 1 }]}>
+
                 
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Nombre</Text>
@@ -242,7 +265,19 @@ export default function PerfilCompletoScreen() {
                 <Text style={styles.saveBtnText}>{saving ? 'Guardando...' : 'Guardar Cambios'}</Text>
               </TouchableOpacity>
             )}
+
+            {!isDesktop && (
+              <TouchableOpacity 
+                style={[styles.logoutBtn, { marginTop: 0, marginBottom: 40 }]} 
+                onPress={handleLogout}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+                <Text style={styles.logoutBtnText}>Cerrar Sesión</Text>
+              </TouchableOpacity>
+            )}
           </View>
+
         </View>
 
       </ScrollView>
@@ -274,10 +309,14 @@ const styles = StyleSheet.create({
   saveBtnText: { color: '#fff', fontWeight: '800', fontSize: 13 },
 
   mainGrid: { flexDirection: 'column', gap: 24 },
-  mainGridDesktop: { flexDirection: 'row', alignItems: 'flex-start', gap: 32 },
-  column: { flex: 1 },
-  section: { marginBottom: 32 },
+  mainGridDesktop: { flexDirection: 'row', alignItems: 'stretch', gap: 32 },
+  column: { },
+
+
+  section: { marginBottom: 12 },
+  sectionDesktop: { marginBottom: 32 },
   sectionTitle: { fontSize: 22, fontWeight: '900', color: '#0F172A', marginBottom: 24, letterSpacing: -0.5 },
+
   card: {
     backgroundColor: '#fff', borderRadius: 32, padding: 28, borderWidth: 1, borderColor: '#F1F5F9',
     shadowColor: '#000', shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.04, shadowRadius: 40, elevation: 3,
@@ -301,4 +340,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, paddingVertical: 16, borderWidth: 1.5, borderColor: '#F1F5F9', gap: 14,
   },
   input: { flex: 1, fontSize: 16, color: '#0F172A', fontWeight: '800', outlineStyle: 'none' } as any,
+  logoutBtn: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF2F2', 
+    paddingHorizontal: 20, paddingVertical: 14, borderRadius: 16, gap: 10,
+    marginTop: 20, borderWidth: 1, borderColor: '#FEE2E2', justifyContent: 'center',
+    width: '100%',
+  },
+  logoutBtnText: { color: '#EF4444', fontWeight: '800', fontSize: 14 },
 });
+

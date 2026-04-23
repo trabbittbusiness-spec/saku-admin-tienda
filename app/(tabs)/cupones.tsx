@@ -17,8 +17,11 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { collection, query, onSnapshot, doc, setDoc, addDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, setDoc, addDoc, deleteDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
+
 import { db } from '../../lib/firebase';
+import { DatePicker } from '../../components/DatePicker';
+
 
 interface Coupon {
   id: string;
@@ -118,11 +121,22 @@ export default function CuponesScreen() {
         await setDoc(doc(db, 'Coupons', editId), data, { merge: true });
         showToast('¡Cupón actualizado!', 'success');
       } else {
-        await addDoc(collection(db, 'Coupons'), {
+        const newCouponRef = await addDoc(collection(db, 'Coupons'), {
           ...data,
           createdAt: serverTimestamp(),
         });
+        // Global broadcast notification for all tienda users
+        const discountText = type === 'percentage' ? `${parsedValue}% de descuento` : `$${parsedValue.toLocaleString()} de descuento`;
+        await addDoc(collection(db, 'notificaciones'), {
+          tipo: 'global',
+          titulo: '🏟️ ¡Nuevo cupón disponible!',
+          mensaje: `Usa el código ${code.toUpperCase().trim()} y obtén ${discountText} en tu próxima compra${parsedMinAmount > 0 ? ` (mín. $${parsedMinAmount.toLocaleString()})` : ''}.`,
+          codigo: code.toUpperCase().trim(),
+          leidaPor: [],
+          creadaEn: Timestamp.now(),
+        });
         showToast('¡Cupón creado con éxito!', 'success');
+
       }
       setModalVisible(false);
       resetForm();
@@ -162,6 +176,16 @@ export default function CuponesScreen() {
   const handleCopy = async (text: string) => {
     await Clipboard.setStringAsync(text);
     showToast('¡Código copiado al portapapeles!');
+  };
+
+  const handleToggleActive = async (id: string, currentValue: boolean) => {
+    try {
+      await updateDoc(doc(db, 'Coupons', id), { active: !currentValue, updatedAt: serverTimestamp() });
+      showToast(!currentValue ? '¡Cupón activado!' : 'Cupón desactivado');
+    } catch (error) {
+      console.error('Error toggling coupon:', error);
+      showToast('Error al cambiar el estado', 'error');
+    }
   };
 
   if (loading) {
@@ -255,6 +279,19 @@ export default function CuponesScreen() {
                   </View>
                 )}
               </View>
+
+              {/* Inline Active Toggle */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#F1F5F9' }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: c.active ? '#065F46' : '#64748B' }}>
+                  {c.active ? 'Cupón activo' : 'Cupón inactivo'}
+                </Text>
+                <Switch
+                  value={c.active}
+                  onValueChange={() => handleToggleActive(c.id, c.active)}
+                  trackColor={{ false: '#E2E8F0', true: '#10B981' }}
+                  thumbColor={c.active ? '#FFFFFF' : '#94A3B8'}
+                />
+              </View>
             </View>
           ))}
 
@@ -339,6 +376,13 @@ export default function CuponesScreen() {
                 />
               </View>
 
+              <DatePicker
+                label="Fecha de Expiración (Opcional)"
+                value={expiryDate}
+                onChange={setExpiryDate}
+              />
+
+
               <View style={styles.switchRow}>
                 <View>
                   <Text style={styles.label}>Cupón Activo</Text>
@@ -346,6 +390,7 @@ export default function CuponesScreen() {
                 </View>
                 <Switch value={active} onValueChange={setActive} trackColor={{ true: '#F59E0B' }} />
               </View>
+
 
               <TouchableOpacity 
                 style={styles.saveBtn} 

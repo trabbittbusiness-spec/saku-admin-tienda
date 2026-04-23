@@ -10,13 +10,14 @@ import { router } from 'expo-router';
 import { collection, query, onSnapshot, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 
-// ─── Choice Chip Filters (from saku-tienda-web) ─────────
-const FILTERS = ['Entregado', 'En proceso', 'Cancelado'];
+// ─── Choice Chip Filters (aligned with saku-tienda) ────
+const FILTERS = ['Todas', 'Pendiente', 'Enviado', 'Entregado'];
 
 const PAGE_SIZE = 6;
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any; bg: string; dot: string }> = {
-  'En proceso': { label: 'En proceso', color: '#6366F1', bg: '#EEF2FF', dot: '#6366F1', icon: 'time-outline' },
+  'Pendiente':  { label: 'Pendiente',  color: '#F59E0B', bg: '#FEF3C7', dot: '#F59E0B', icon: 'time-outline' },
+  'Enviado':    { label: 'Enviado',    color: '#6366F1', bg: '#EEF2FF', dot: '#6366F1', icon: 'bicycle-outline' },
   'Entregado':  { label: 'Entregado',  color: '#10B981', bg: '#DCFCE7', dot: '#10B981', icon: 'checkmark-circle-outline' },
   'Cancelado':  { label: 'Cancelado',  color: '#EF4444', bg: '#FEE2E2', dot: '#EF4444', icon: 'close-circle-outline' },
 };
@@ -28,11 +29,16 @@ const formatDate = (ts: any) => {
   return date.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
-// Map DB status to UI status
+// Map DB status to UI status (case-insensitive, normalized)
 const mapToUIStatus = (dbStatus: string) => {
-  if (dbStatus === 'Procesando' || dbStatus === 'En camino' || dbStatus === 'pendiente') return 'En proceso';
-  return dbStatus || 'En proceso';
+  const s = (dbStatus || '').toLowerCase().trim();
+  if (s === 'pendiente' || s === 'procesando' || s === 'en proceso' || s === 'en camino') return 'Pendiente';
+  if (s === 'enviado') return 'Enviado';
+  if (s === 'entregado') return 'Entregado';
+  if (s === 'cancelado') return 'Cancelado';
+  return 'Pendiente';
 };
+
 
 // ─── Order Detail Panel ─────────────────────────────────
 function OrderDetailPanel({ order, onClose }: { order: any; onClose: () => void }) {
@@ -293,7 +299,7 @@ export default function OrdenesScreen() {
   const isDesktop = Platform.OS === 'web' && width >= 860;
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeFilter, setActiveFilter] = useState('Entregado');
+  const [activeFilter, setActiveFilter] = useState('Todas');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -381,7 +387,7 @@ export default function OrdenesScreen() {
   }, []);
 
   const filtered = orders.filter((o) => {
-    const matchFilter = o.status === activeFilter;
+    const matchFilter = activeFilter === 'Todas' || o.status === activeFilter;
     const searchLower = search.toLowerCase();
     const matchSearch = search === '' || 
       o.displayId.toLowerCase().includes(searchLower) || 
@@ -399,9 +405,9 @@ export default function OrdenesScreen() {
 
   // ── CHOICE CHIPS BAR (shared) ──────────────────────
   const FilterChips = () => (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
       {FILTERS.map((f) => {
-        const count = orders.filter(o => o.status === f).length;
+        const count = f === 'Todas' ? orders.length : orders.filter(o => o.status === f).length;
         const active = activeFilter === f;
         return (
           <TouchableOpacity key={f} style={[chip.pill, active && chip.pillActive]} onPress={() => changeFilter(f)} activeOpacity={0.7}>

@@ -7,7 +7,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { db } from '../../../lib/firebase';
-import { doc, onSnapshot, updateDoc, deleteDoc, Timestamp } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, deleteDoc, Timestamp, addDoc, collection, getDoc } from 'firebase/firestore';
+
 import * as Clipboard from 'expo-clipboard';
 
 const formatDate = (ts: any) => {
@@ -17,25 +18,24 @@ const formatDate = (ts: any) => {
 };
 
 const mapToUIStatus = (dbStatus: string) => {
-  const s = (dbStatus || 'pendiente').toLowerCase();
-  if (s === 'procesando' || s === 'en proceso' || s === 'pendiente') return 'Procesando';
-  if (s === 'en camino' || s === 'enviado') return 'En camino';
+  const s = (dbStatus || 'pendiente').toLowerCase().trim();
+  if (s === 'procesando' || s === 'en proceso' || s === 'pendiente' || s === 'en camino') return 'Pendiente';
+  if (s === 'enviado') return 'Enviado';
   if (s === 'entregado') return 'Entregado';
   if (s === 'cancelado') return 'Cancelado';
-  return 'Procesando';
+  return 'Pendiente';
 };
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string; icon: any }> = {
-  'Procesando': { color: '#6366F1', bg: '#EEF2FF', icon: 'time-outline' },
-  'En camino': { color: '#F59E0B', bg: '#FEF3C7', icon: 'bicycle-outline' },
+  'Pendiente': { color: '#F59E0B', bg: '#FEF3C7', icon: 'time-outline' },
+  'Enviado':   { color: '#6366F1', bg: '#EEF2FF', icon: 'bicycle-outline' },
   'Entregado': { color: '#10B981', bg: '#DCFCE7', icon: 'checkmark-circle-outline' },
   'Cancelado': { color: '#EF4444', bg: '#FEE2E2', icon: 'close-circle-outline' },
 };
 
 const getStepIndex = (status: string) => {
-  const s = status.toLowerCase();
-  if (s === 'entregado') return 2;
-  if (s === 'en camino' || s === 'enviado') return 1;
+  if (status === 'Entregado') return 2;
+  if (status === 'Enviado') return 1;
   return 0;
 };
 
@@ -91,14 +91,41 @@ export default function OrdenDetalleScreen() {
     if (!id) return;
     setSaving(true);
     try {
-      const orderDoc = doc(db, 'Orden', decodeURIComponent(id));
-      await updateDoc(orderDoc, { estado: newStatus });
+      const orderDocRef = doc(db, 'Orden', decodeURIComponent(id));
+      await updateDoc(orderDocRef, { estado: newStatus });
+
+      // Create notification for the client
+      const notifMessages: Record<string, { title: string; body: string }> = {
+        'Pendiente':  { title: '⏳ Orden recibida', body: 'Hemos recibido tu pedido y está siendo procesado.' },
+        'Enviado':    { title: '🚴 ¡Tu pedido está en camino!', body: `Tu orden #${order?.displayId || decodeURIComponent(id)} ha sido enviada y está en camino.` },
+        'Entregado':  { title: '✅ ¡Pedido entregado!', body: `Tu orden #${order?.displayId || decodeURIComponent(id)} ha sido entregada. ¡Gracias por tu compra!` },
+        'Cancelado':  { title: '❌ Orden cancelada', body: `Tu orden #${order?.displayId || decodeURIComponent(id)} ha sido cancelada. Contáctanos si tienes dudas.` },
+      };
+
+      const msg = notifMessages[newStatus] ?? { title: 'Actualización de orden', body: `El estado de tu orden cambió a ${newStatus}.` };
+
+      // Get creador reference from the order document
+      const orderSnap = await getDoc(orderDocRef);
+      const creadorRef = orderSnap.exists() ? (orderSnap.data().creador ?? null) : null;
+
+      await addDoc(collection(db, 'notificaciones'), {
+        creador: creadorRef,
+        ordenRef: orderDocRef,
+        ordenId: decodeURIComponent(id),
+        displayId: order?.displayId || decodeURIComponent(id),
+        estado: newStatus,
+        titulo: msg.title,
+        mensaje: msg.body,
+        leida: false,
+        creadaEn: Timestamp.now(),
+      });
     } catch (e) {
-      console.log("Error updating order:", e);
+      console.log('Error updating order:', e);
     } finally {
       setSaving(false);
     }
   };
+
 
   const performDelete = async () => {
     setShowDeleteModal(false);
@@ -137,7 +164,7 @@ export default function OrdenDetalleScreen() {
     { label: 'Entregado', icon: 'home-outline' as const }
   ];
   const stepIndex = getStepIndex(order.status);
-  const cfg = STATUS_CONFIG[order.status] ?? STATUS_CONFIG['Procesando'];
+  const cfg = STATUS_CONFIG[order.status] ?? STATUS_CONFIG['Pendiente'];
 
   return (
     <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
@@ -245,7 +272,7 @@ export default function OrdenDetalleScreen() {
             <View style={[s.card, { padding: 15, flex: isDesktop ? 0.5 : undefined }]}>
               <Text style={s.sectionLabel}>ESTADO</Text>
               <View style={{ gap: 6, flex: 1 }}>
-                {['Procesando', 'En camino', 'Entregado', 'Cancelado'].map(st => {
+                {['Pendiente', 'Enviado', 'Entregado'].map(st => {
                   const c = STATUS_CONFIG[st];
                   const active = order.status === st;
                   return (

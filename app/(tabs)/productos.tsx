@@ -360,14 +360,7 @@ export default function ProductosScreen() {
                 </View>
               </View>
 
-              <View style={ms.cardActions}>
-                <TouchableOpacity style={ms.actionBtn}>
-                  <Ionicons name="pencil-outline" size={16} color="#6366F1" />
-                </TouchableOpacity>
-                <TouchableOpacity style={[ms.actionBtn, ms.actionBtnDanger]}>
-                  <Ionicons name="trash-outline" size={16} color="#EF4444" />
-                </TouchableOpacity>
-              </View>
+
             </TouchableOpacity>
           );
         })}

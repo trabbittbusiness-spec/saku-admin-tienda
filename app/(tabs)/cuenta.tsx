@@ -11,6 +11,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { auth } from '../../lib/firebase';
+import { signOut } from 'firebase/auth';
 
 export default function CuentaScreen() {
   const { width } = useWindowDimensions();
@@ -53,7 +55,23 @@ export default function CuentaScreen() {
           >
             <Text style={styles.editBtnText}>Editar Perfil Completo</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.editBtn, { backgroundColor: '#FEF2F2', marginTop: 12, shadowColor: '#EF4444' }]} 
+            activeOpacity={0.75}
+            onPress={async () => {
+              try {
+                await signOut(auth);
+                router.replace('/');
+              } catch (error) {
+                console.error('Error signing out:', error);
+              }
+            }}
+          >
+            <Text style={[styles.editBtnText, { color: '#EF4444' }]}>Cerrar Sesión</Text>
+          </TouchableOpacity>
         </View>
+
 
         {/* Right Col: Grid of Cards */}
         <View style={styles.gridContainer}>
