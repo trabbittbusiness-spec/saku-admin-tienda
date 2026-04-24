@@ -1,6 +1,9 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated, Pressable } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated, Pressable, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { db } from '../lib/firebase';
+import { collection, query, orderBy, limit, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { router } from 'expo-router';
 
 interface Notification {
   id: string;
@@ -9,14 +12,8 @@ interface Notification {
   time: string;
   type: 'order' | 'user' | 'promo' | 'system';
   read: boolean;
+  orderId?: string;
 }
-
-const NOTIFICATIONS: Notification[] = [
-  { id: '1', title: 'Nuevo Pedido #1234', desc: 'El cliente Juan Perez ha realizado una compra de $150.', time: 'hace 5 min', type: 'order', read: false },
-  { id: '2', title: 'Nuevo Usuario', desc: 'Maria Garcia se ha registrado en la plataforma.', time: 'hace 10 min', type: 'user', read: false },
-  { id: '3', title: 'Promoción Agotada', desc: 'La promoción "Descuento de Verano" ha llegado a su fin.', time: 'hace 1 hora', type: 'promo', read: true },
-  { id: '4', title: 'Actualización de Sistema', desc: 'El panel ha sido actualizado a la versión 3.8.18.', time: 'hace 2 horas', type: 'system', read: true },
-];
 
 interface Props {
   open: boolean;
@@ -26,6 +23,35 @@ interface Props {
 export default function NotificationDrawer({ open, onClose }: Props) {
   const slideAnim = React.useRef(new Animated.Value(400)).current;
   const [visible, setVisible] = React.useState(open);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const q = query(collection(db, 'Notifications'), orderBy('timestamp', 'desc'), limit(20));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetched = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Notification[];
+      setNotifications(fetched);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const handleNotifPress = async (notif: Notification) => {
+    if (!notif.read) {
+      try {
+        await updateDoc(doc(db, 'Notifications', notif.id), { read: true });
+      } catch (e) { console.log("Error marking as read:", e); }
+    }
+
+    if (notif.type === 'order' && notif.orderId) {
+      onClose();
+      router.push(`/orden/${notif.orderId}`);
+    }
+  };
 
   React.useEffect(() => {
     if (open) {
@@ -58,29 +84,45 @@ export default function NotificationDrawer({ open, onClose }: Props) {
         </View>
 
         <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-          {NOTIFICATIONS.map((notif) => (
-            <TouchableOpacity key={notif.id} style={[styles.card, !notif.read && styles.unreadCard]} activeOpacity={0.7}>
-              <View style={[styles.iconWrapper, styles[`icon_${notif.type}`]]}>
-                <Ionicons 
-                  name={
-                    notif.type === 'order' ? 'receipt' : 
-                    notif.type === 'user' ? 'person' : 
-                    notif.type === 'promo' ? 'pricetag' : 'settings'
-                  } 
-                  size={18} 
-                  color="#fff" 
-                />
-              </View>
-              <View style={styles.content}>
-                <View style={styles.topRow}>
-                  <Text style={styles.notifTitle}>{notif.title}</Text>
-                  {!notif.read && <View style={styles.unreadDot} />}
+          {loading ? (
+            <ActivityIndicator size="large" color="#6366F1" style={{ marginTop: 40 }} />
+          ) : notifications.length === 0 ? (
+            <View style={{ marginTop: 60, alignItems: 'center', opacity: 0.5 }}>
+              <Ionicons name="notifications-off-outline" size={48} color="#94A3B8" />
+              <Text style={{ marginTop: 12, fontSize: 14, color: '#94A3B8', fontWeight: '600' }}>Sin notificaciones</Text>
+            </View>
+          ) : (
+            notifications.map((notif) => (
+              <TouchableOpacity 
+                key={notif.id} 
+                style={[styles.card, !notif.read && styles.unreadCard]} 
+                activeOpacity={0.7}
+                onPress={() => handleNotifPress(notif)}
+              >
+                <View style={[styles.iconWrapper, styles[`icon_${notif.type}` as keyof typeof styles] || styles.icon_system]}>
+                  <Ionicons 
+                    name={
+                      notif.type === 'order' ? 'receipt' : 
+                      notif.type === 'user' ? 'person' : 
+                      notif.type === 'promo' ? 'pricetag' : 'settings'
+                    } 
+                    size={18} 
+                    color="#fff" 
+                  />
                 </View>
-                <Text style={styles.notifDesc} numberOfLines={2}>{notif.desc}</Text>
-                <Text style={styles.notifTime}>{notif.time}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
+                <View style={styles.content}>
+                  <View style={styles.topRow}>
+                    <Text style={styles.notifTitle}>{notif.title}</Text>
+                    {!notif.read && <View style={styles.unreadDot} />}
+                  </View>
+                  <Text style={styles.notifDesc} numberOfLines={2}>{notif.desc}</Text>
+                  <Text style={styles.notifTime}>
+                    {notif.time ? new Date(notif.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Ahora'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
         </ScrollView>
 
         <TouchableOpacity style={styles.footer} activeOpacity={0.7}>

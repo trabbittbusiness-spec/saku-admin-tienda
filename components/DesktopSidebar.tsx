@@ -1,7 +1,10 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Pressable, Platform, ScrollView } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Pressable, Platform, ScrollView, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { usePathname, router } from 'expo-router';
+import { auth, db } from '../lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 
 const NAV_ITEMS = [
   { name: 'hogar',     label: 'Hogar',     activeIcon: 'home-outline',        inactiveIcon: 'home-outline' },
@@ -21,11 +24,39 @@ interface Props {
 export default function DesktopSidebar({ open, isMobile, onClose }: Props) {
   const pathname = usePathname();
 
+  const [userData, setUserData] = useState<any>(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const docRef = doc(db, 'users', user.uid);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            setUserData(docSnap.data());
+          } else {
+            setUserData({
+              display_name: user.displayName || 'Admin',
+              email: user.email,
+            });
+          }
+        } catch (error) {
+          console.error("Error sidebar user data:", error);
+        }
+      } else {
+        setUserData(null);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   // On mobile, if not open, it's completely hidden
   if (isMobile && !open) return null;
 
   // On desktop, if not open, it's "collapsed"
   const collapsed = !isMobile && !open;
+
 
   const content = (
     <View style={[
@@ -35,8 +66,12 @@ export default function DesktopSidebar({ open, isMobile, onClose }: Props) {
     ]}>
       {/* Logo */}
       <View style={[styles.logoSection, collapsed && styles.logoSectionCollapsed]}>
-        <View style={styles.logoCircle}>
-          <Text style={styles.logoText}>S</Text>
+        <View style={styles.logoContainer}>
+          <Image 
+            source={require('../assets/images/logo_saku_cl.png')} 
+            style={styles.mainLogo}
+            resizeMode="contain"
+          />
         </View>
         {!collapsed && (
           <View>
@@ -94,9 +129,14 @@ export default function DesktopSidebar({ open, isMobile, onClose }: Props) {
               <Ionicons name="person" size={16} color="#6366F1" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.userName}>Admin</Text>
-              <Text style={styles.userEmail}>admin@saku.com</Text>
+              <Text style={styles.userName} numberOfLines={1}>
+                {userData?.display_name || 'Cargando...'}
+              </Text>
+              <Text style={styles.userEmail} numberOfLines={1}>
+                {userData?.email || 'admin@saku.com'}
+              </Text>
             </View>
+
             <TouchableOpacity>
               <Ionicons name="log-out-outline" size={18} color="#94A3B8" />
             </TouchableOpacity>
@@ -162,26 +202,34 @@ const styles = StyleSheet.create({
   logoSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 24,
+    gap: 14,
+    marginBottom: 28,
     paddingHorizontal: 4,
   },
   logoSectionCollapsed: {
     justifyContent: 'center',
     paddingHorizontal: 0,
   },
-  logoCircle: {
-    width: 40,
-    height: 40,
+  logoContainer: {
+    width: 42,
+    height: 42,
     borderRadius: 12,
-    backgroundColor: '#6366F1',
+    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
+    padding: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
   },
-  logoText: { color: '#fff', fontSize: 20, fontWeight: '800' },
-  brandName: { color: '#F8FAFC', fontSize: 16, fontWeight: '700' },
-  brandSub: { color: '#64748B', fontSize: 11 },
+  mainLogo: {
+    width: '100%',
+    height: '100%',
+  },
+  brandName: { color: '#F8FAFC', fontSize: 16, fontWeight: '800', letterSpacing: -0.5 },
+  brandSub: { color: '#64748B', fontSize: 11, fontWeight: '600' },
   divider: { height: 1, backgroundColor: '#1E293B', marginVertical: 12 },
   nav: { flex: 1, marginTop: 4 },
   navItem: {

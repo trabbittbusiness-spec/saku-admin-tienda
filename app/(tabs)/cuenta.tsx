@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -7,16 +7,51 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { auth } from '../../lib/firebase';
-import { signOut } from 'firebase/auth';
+import { auth, db } from '../../lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
+
 
 export default function CuentaScreen() {
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 860;
+
+  const [userData, setUserData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const docRef = doc(db, 'users', user.uid);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            setUserData(docSnap.data());
+          } else {
+            // Fallback to auth data if firestore doc is missing
+            setUserData({
+              display_name: user.displayName || 'Administrador',
+              email: user.email,
+            });
+          }
+        } catch (error) {
+          console.error("Error fetching user data:", error);
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        setUserData(null);
+        setLoading(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const Content = (
     <ScrollView
@@ -40,8 +75,13 @@ export default function CuentaScreen() {
             <View style={styles.statusDot} />
           </View>
 
-          <Text style={styles.profileName}>¡Hola, Administrador!</Text>
-          <Text style={styles.profileEmail}>admin@saku.com</Text>
+          <Text style={styles.profileName}>
+            {loading ? 'Cargando...' : `¡Hola, ${userData?.display_name || 'Administrador'}!`}
+          </Text>
+          <Text style={styles.profileEmail}>
+            {loading ? '...' : userData?.email || 'admin@saku.com'}
+          </Text>
+
 
           <View style={styles.roleBadge}>
             <Ionicons name="star" size={14} color="#EAB308" />
@@ -55,22 +95,9 @@ export default function CuentaScreen() {
           >
             <Text style={styles.editBtnText}>Editar Perfil Completo</Text>
           </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={[styles.editBtn, { backgroundColor: '#FEF2F2', marginTop: 12, shadowColor: '#EF4444' }]} 
-            activeOpacity={0.75}
-            onPress={async () => {
-              try {
-                await signOut(auth);
-                router.replace('/');
-              } catch (error) {
-                console.error('Error signing out:', error);
-              }
-            }}
-          >
-            <Text style={[styles.editBtnText, { color: '#EF4444' }]}>Cerrar Sesión</Text>
-          </TouchableOpacity>
         </View>
+
+
 
 
         {/* Right Col: Grid of Cards */}

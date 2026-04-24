@@ -34,6 +34,19 @@ export default function DesktopHeader({
   const currentPage = segments[segments.length - 1] ?? 'hogar';
   const title = PAGE_TITLES[currentPage] ?? 'Panel';
   const [notifyModalOpen, setNotifyModalOpen] = React.useState(false);
+  const [unreadCount, setUnreadCount] = React.useState(0);
+
+  React.useEffect(() => {
+    const { db } = require('../lib/firebase');
+    const { collection, query, where, onSnapshot } = require('firebase/firestore');
+    
+    const q = query(collection(db, 'Notifications'), where('read', '==', false));
+    const unsubscribe = onSnapshot(q, (snapshot: any) => {
+      setUnreadCount(snapshot.size);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   return (
     <>
@@ -63,9 +76,11 @@ export default function DesktopHeader({
           {/* Notification Bell */}
           <TouchableOpacity style={styles.iconBtn} onPress={onToggleNotifications} activeOpacity={0.7}>
             <Ionicons name="notifications-outline" size={30} color="#475569" />
-            <View style={styles.notificationBadge}>
-              <Text style={styles.badgeText}>3</Text>
-            </View>
+            {unreadCount > 0 && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.badgeText}>{unreadCount}</Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
       </View>

@@ -52,6 +52,8 @@ export default function OrdenDetalleScreen() {
 
   useEffect(() => {
     if (!id) return;
+    setLoading(true);
+    setOrder(null);
     const orderDoc = doc(db, 'Orden', decodeURIComponent(id));
     const unsubscribe = onSnapshot(orderDoc, (snapshot) => {
       if (snapshot.exists()) {
@@ -135,6 +137,10 @@ export default function OrdenDetalleScreen() {
       router.push(from ? (from as any) : '/ordenes');
     } catch (e) {
       console.log("Error deleting order:", e);
+      setSaving(false);
+    } finally {
+      // If we push, we don't necessarily need to setSaving(false) but it's safer
+      // especially if the push is delayed or the screen is reused.
       setSaving(false);
     }
   };
@@ -395,13 +401,8 @@ export default function OrdenDetalleScreen() {
 
       </ScrollView>
 
-      {/* Delete Confirmation Modal */}
-      <Modal
-        visible={showDeleteModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowDeleteModal(false)}
-      >
+      {/* Delete Confirmation Overlay */}
+      {showDeleteModal && (
         <View style={s.modalOverlay}>
           <View style={s.modalContent}>
             <View style={s.modalIcon}>
@@ -420,7 +421,7 @@ export default function OrdenDetalleScreen() {
             </View>
           </View>
         </View>
-      </Modal>
+      )}
 
     </View>
   );
@@ -451,7 +452,14 @@ const s = StyleSheet.create({
   countBadge: { backgroundColor: '#F3F4F6', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
   countBadgeText: { fontSize: 11, fontWeight: '800', color: '#6B7280' },
   
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
+  modalOverlay: { 
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.4)', 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    zIndex: 1000,
+    elevation: 100
+  },
   modalContent: { backgroundColor: '#fff', borderRadius: 24, padding: 24, width: '90%', maxWidth: 400, alignItems: 'center' },
   modalIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#FEE2E2', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
   modalTitle: { fontSize: 20, fontWeight: '900', color: '#111827', marginBottom: 8 },

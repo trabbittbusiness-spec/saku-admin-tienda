@@ -165,7 +165,7 @@ export default function CategoriasScreen() {
           horizontal 
           showsHorizontalScrollIndicator={false} 
           style={styles.filterTabs}
-          contentContainerStyle={styles.filterTabsContent}
+          contentContainerStyle={[styles.filterTabsContent, isDesktop && { gap: 16 }]}
         >
           {(animalsList.length > 0 ? animalsList : ANIMALS_DEFAULT).map(a => (
             <TouchableOpacity 

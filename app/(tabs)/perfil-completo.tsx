@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../../lib/firebase';
+import { signOut } from 'firebase/auth';
 import * as ImagePicker from 'expo-image-picker';
 
 export default function PerfilCompletoScreen() {
@@ -66,7 +67,7 @@ export default function PerfilCompletoScreen() {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      router.replace('/');
+      router.replace('/login');
     } catch (error) {
       console.error('Error signing out:', error);
     }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,159 +7,312 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   Platform,
-  Modal,
+  ActivityIndicator,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-const KPI_DATA = [
-  { label: 'Ventas Totales', value: '$284.5k', change: '+12%', color: '#10B981', icon: 'cash-outline' },
-  { label: 'Usuarios Activos', value: '12,840', change: '+5%', color: '#6366F1', icon: 'people-outline' },
-  { label: 'Productos', value: '542', change: '+2%', color: '#F59E0B', icon: 'cube-outline' },
-  { label: 'Pedidos Hoy', value: '124', change: '+18%', color: '#EC4899', icon: 'cart-outline' },
-];
-
-const PERIOD_OPTIONS = ['Diarios', 'Semanal', 'Mensual', 'Trimestral', 'Anual'];
+import Svg, { Path, Circle } from 'react-native-svg';
+import { db } from '../../lib/firebase';
+import { collection, onSnapshot, Timestamp } from 'firebase/firestore';
 
 export default function HogarScreen() {
-  const { width } = useWindowDimensions();
-  const isDesktop = Platform.OS === 'web' && width >= 1024;
-  const [viewType, setViewType] = useState('Semanal');
-  const [showPicker, setShowPicker] = useState(false);
+  const { width: windowWidth } = useWindowDimensions();
+  const isDesktop = Platform.OS === 'web' && windowWidth >= 1024;
+  const [viewType, setViewType] = useState('Mensual');
+  const [containerWidth, setContainerWidth] = useState(0);
 
-  const renderWaveChart = () => (
-    <View style={styles.waveChart}>
-      {[30, 45, 35, 60, 40, 75, 50, 85, 65, 95, 70, 100, 80, 90, 85].map((h, i) => (
-        <View key={i} style={[styles.waveBar, { height: `${h}%` }]}>
-           <View style={[styles.waveCap, { backgroundColor: '#10B981' }]} />
-        </View>
-      ))}
-    </View>
-  );
+  // States for dynamic data
+  const [userData, setUserData] = useState({ total: 0, today: 0, percentage: '0%' });
+  const [productData, setProductData] = useState({ total: 0, today: 0, percentage: '0%' });
+  const [orderData, setOrderData] = useState({ total: 0, today: 0, percentage: '0%' });
+  
+  const [allOrders, setAllOrders] = useState<any[]>([]);
+  const [loadingRevenue, setLoadingRevenue] = useState(true);
 
-  const renderPeriodPicker = () => (
-    <Modal visible={showPicker} transparent animationType="fade">
-      <TouchableOpacity 
-        style={styles.modalOverlay} 
-        activeOpacity={1} 
-        onPress={() => setShowPicker(false)}
-      >
-        <View style={styles.pickerContent}>
-          {PERIOD_OPTIONS.map(opt => (
-            <TouchableOpacity 
-              key={opt} 
-              style={[styles.pickerItem, viewType === opt && styles.pickerItemActive]}
-              onPress={() => { setViewType(opt); setShowPicker(false); }}
-            >
-              <Text style={[styles.pickerText, viewType === opt && styles.pickerTextActive]}>{opt}</Text>
-              {viewType === opt && <Ionicons name="checkmark" size={18} color="#10B981" />}
-            </TouchableOpacity>
-          ))}
-        </View>
-      </TouchableOpacity>
-    </Modal>
-  );
+  const calculateGrowth = (today: number, total: number) => {
+    if (total === 0 || total === today) return '0%';
+    const base = total - today;
+    const growth = (today / base) * 100;
+    return `+${growth.toFixed(1)}%`;
+  };
+
+  const parseDate = (item: any) => {
+    if (!item) return null;
+    if (item.timestamp instanceof Timestamp) return item.timestamp.toDate();
+    if (item.fechaCreacion && typeof item.fechaCreacion === 'string') return new Date(item.fechaCreacion);
+    if (item.fechaCreacion instanceof Timestamp) return item.fechaCreacion.toDate();
+    if (item.createdAt instanceof Timestamp) return item.createdAt.toDate();
+    if (item.created_time instanceof Timestamp) return item.created_time.toDate();
+    if (item.timestamp && typeof item.timestamp === 'number') return new Date(item.timestamp);
+    return null;
+  };
+
+  const isToday = (item: any) => {
+    const d = parseDate(item);
+    if (!d) return false;
+    const today = new Date();
+    return d.getDate() === today.getDate() &&
+           d.getMonth() === today.getMonth() &&
+           d.getFullYear() === today.getFullYear();
+  };
+
+  useEffect(() => {
+    // 1. Fetch Active Users
+    const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+      const all = snapshot.docs.map(d => d.data());
+      const active = all.filter(u => u.IsAdmin !== true);
+      const todayCount = active.filter(u => isToday(u)).length;
+      setUserData({
+        total: active.length,
+        today: todayCount,
+        percentage: calculateGrowth(todayCount, active.length)
+      });
+    });
+
+    // 2. Fetch Products
+    const unsubProducts = onSnapshot(collection(db, 'Products'), (snapshot) => {
+      const all = snapshot.docs.map(d => d.data());
+      const todayCount = all.filter(p => isToday(p)).length;
+      setProductData({
+        total: all.length,
+        today: todayCount,
+        percentage: calculateGrowth(todayCount, all.length)
+      });
+    });
+
+    // 3. Fetch ALL Orders
+    const unsubOrders = onSnapshot(collection(db, 'Orden'), (snapshot) => {
+      const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      setAllOrders(list);
+      const delivered = list.filter((o: any) => o.estado === 'Entregado');
+      const todayCount = delivered.filter((o: any) => isToday(o)).length;
+      setOrderData({
+        total: delivered.length,
+        today: todayCount,
+        percentage: calculateGrowth(todayCount, delivered.length)
+      });
+      setLoadingRevenue(false);
+    });
+
+    return () => {
+      unsubUsers(); unsubProducts(); unsubOrders();
+    };
+  }, []);
+
+  const analytics = useMemo(() => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    
+    const dailyData = new Array(24).fill(0); 
+    const weeklyData = new Array(7).fill(0); 
+    const monthlyData = new Array(4).fill(0); 
+    const yearlyData = new Array(12).fill(0); 
+
+    const totals = { today: 0, yesterday: 0, thisWeek: 0, lastWeek: 0, thisMonth: 0, lastMonth: 0, thisYear: 0, lastYear: 0 };
+    const getDayIndex = (d: Date) => { const day = d.getDay(); return day === 0 ? 6 : day - 1; };
+
+    const startOfToday = new Date(now); startOfToday.setHours(0,0,0,0);
+    const startOfYesterday = new Date(startOfToday); startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+    const startOfWeek = new Date(startOfToday); startOfWeek.setDate(startOfToday.getDate() - getDayIndex(now));
+    const startOfLastWeek = new Date(startOfWeek); startOfLastWeek.setDate(startOfWeek.getDate() - 7);
+    const startOfMonth = new Date(currentYear, currentMonth, 1);
+    const startOfLastMonth = new Date(currentYear, currentMonth - 1, 1);
+    const startOfYear = new Date(currentYear, 0, 1);
+    const startOfLastYear = new Date(currentYear - 1, 0, 1);
+
+    const productSales: Record<string, { name: string, quantity: number, photo: string, color: string }> = {};
+    const COLORS = ['#6366F1', '#10B981', '#F59E0B', '#EC4899', '#8B5CF6'];
+
+    allOrders.forEach((o: any) => {
+      const isRevenueValid = o.estado === 'Entregado' || ['tarjeta', 'Tarjeta', 'card'].includes(o.metodoPago);
+      const isTopProductValid = o.estado === 'Entregado'; 
+      
+      const date = parseDate(o);
+      if (!date) return; // Skip if no date is found
+      
+      const total = parseFloat(o.total) || 0;
+      
+      if (isRevenueValid) {
+        if (date >= startOfToday) totals.today += total;
+        else if (date >= startOfYesterday && date < startOfToday) totals.yesterday += total;
+        if (date >= startOfWeek) totals.thisWeek += total;
+        else if (date >= startOfLastWeek && date < startOfWeek) totals.lastWeek += total;
+        if (date >= startOfMonth) totals.thisMonth += total;
+        else if (date >= startOfLastMonth && date < startOfMonth) totals.lastMonth += total;
+        if (date >= startOfYear) totals.thisYear += total;
+        else if (date >= startOfLastYear && date < startOfYear) totals.lastYear += total;
+
+        if (date.getFullYear() === currentYear) {
+          yearlyData[date.getMonth()] += total;
+          if (date.getMonth() === currentMonth) {
+            const weekIdx = Math.min(3, Math.floor((date.getDate() - 1) / 7));
+            monthlyData[weekIdx] += total;
+          }
+          if (date >= startOfWeek) weeklyData[getDayIndex(date)] += total;
+          if (date >= startOfToday) dailyData[date.getHours()] += total;
+        }
+      }
+
+      if (isTopProductValid && Array.isArray(o.items) && date >= startOfMonth) {
+        o.items.forEach((item: any) => {
+          const id = item.id || item.nombre;
+          if (!id) return;
+          if (!productSales[id]) {
+            productSales[id] = { 
+              name: item.nombre || 'Producto', 
+              quantity: 0, 
+              photo: item.foto || '', 
+              color: COLORS[Object.keys(productSales).length % COLORS.length] 
+            };
+          }
+          productSales[id].quantity += (parseInt(item.cantidad) || 0);
+        });
+      }
+    });
+
+    const topProducts = Object.values(productSales)
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, 5);
+
+    const getTrend = (current: number, prev: number) => {
+      if (prev === 0) return current > 0 ? '+100%' : '0%';
+      const diff = ((current - prev) / prev) * 100;
+      return `${diff >= 0 ? '+' : ''}${diff.toFixed(1)}%`;
+    };
+
+    return {
+      daily: { data: dailyData, current: totals.today, trend: getTrend(totals.today, totals.yesterday), label: 'vs Ayer' },
+      weekly: { data: weeklyData, current: totals.thisWeek, trend: getTrend(totals.thisWeek, totals.lastWeek), label: 'vs Sem. Anterior' },
+      monthly: { data: monthlyData, current: totals.thisMonth, trend: getTrend(totals.thisMonth, totals.lastMonth), label: 'vs Mes Anterior' },
+      yearly: { data: yearlyData, current: totals.thisYear, trend: getTrend(totals.thisYear, totals.lastYear), label: 'vs Año Anterior' },
+      topProducts
+    };
+  }, [allOrders]);
+
+  const VIEW_CONFIG = {
+    Diario: { labels: ['00', '04', '08', '12', '16', '20', '23'], data: [analytics.daily.data[0], analytics.daily.data[4], analytics.daily.data[8], analytics.daily.data[12], analytics.daily.data[16], analytics.daily.data[20], analytics.daily.data[23]], title: 'Ventas de Hoy', stats: analytics.daily },
+    Semanal: { labels: ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'], data: analytics.weekly.data, title: 'Esta Semana', stats: analytics.weekly },
+    Mensual: { labels: ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'], data: analytics.monthly.data, title: 'Este Mes', stats: analytics.monthly },
+    Anual: { labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'], data: analytics.yearly.data, title: 'Este Año', stats: analytics.yearly }
+  };
+
+  const currentConfig = VIEW_CONFIG[viewType as keyof typeof VIEW_CONFIG] || VIEW_CONFIG.Mensual;
+  const chartHeight = 220;
+
+  const onLayout = useCallback((event: any) => setContainerWidth(event.nativeEvent.layout.width), []);
+
+  const renderSVGChart = () => {
+    if (containerWidth === 0 || loadingRevenue) return <ActivityIndicator style={{ height: chartHeight }} />;
+    const dataPoints = currentConfig.data;
+    const maxVal = Math.max(...dataPoints, 1000); 
+    const stepX = containerWidth / (dataPoints.length - 1);
+    const pathData = dataPoints.reduce((acc, val, i) => {
+      const x = i * stepX;
+      const y = chartHeight - (val / maxVal) * (chartHeight - 40) - 20;
+      return acc + `${i === 0 ? 'M' : 'L'} ${x} ${y} `;
+    }, "");
+    return (
+      <View style={[styles.chartContainer, { height: chartHeight + 40 }]}>
+        <Svg width={containerWidth} height={chartHeight} style={styles.svgStyle}>
+          <Path d={pathData} fill="none" stroke="#6366F1" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+          {dataPoints.map((val, i) => {
+            const x = i * stepX;
+            const y = chartHeight - (val / maxVal) * (chartHeight - 40) - 20;
+            return <React.Fragment key={`${i}-dots`}><Circle cx={x} cy={y} r="8" fill="#6366F1" opacity="0.2" /><Circle cx={x} cy={y} r="6" fill="#6366F1" stroke="#fff" strokeWidth="3" /></React.Fragment>;
+          })}
+        </Svg>
+        <View style={styles.xAxis}>{currentConfig.labels.map((label, i) => (<Text key={`${label}-${i}`} style={[styles.xLabel, { left: i * stepX, transform: [{ translateX: -15 }], width: 30 }]}>{label}</Text>))}</View>
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <ScrollView 
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.content, isDesktop && styles.contentDesktop]}
-      >
-        {/* Header Compacto - Ancho Completo */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>Dashboard Principal</Text>
-            <Text style={styles.subtitle}>Vista general de rendimiento</Text>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, isDesktop && styles.contentDesktop]}>
+        <View style={styles.mainHeader}>
+          <View style={styles.titleSection}>
+            <Text style={styles.title}>Gestión de Dashboard</Text>
+            <Text style={styles.subtitle}>Métricas de negocio con comparativas inteligentes</Text>
           </View>
-          <TouchableOpacity 
-            style={styles.filterBtn}
-            onPress={() => setShowPicker(true)}
-          >
-            <Ionicons name="calendar-outline" size={18} color="#0F172A" />
-            <Text style={styles.filterText}>{viewType}</Text>
-            <Ionicons name="chevron-down" size={14} color="#64748B" />
-          </TouchableOpacity>
         </View>
 
-        {/* KPI Grid - Ancho Completo */}
         <View style={[styles.kpiGrid, isDesktop && styles.kpiGridDesktop]}>
-          {KPI_DATA.map((kpi) => (
+          {[
+            { label: 'Usuarios Activos', value: userData.total, today: userData.today, change: userData.percentage, color: '#6366F1', icon: 'people-outline' },
+            { label: 'Productos', value: productData.total, today: productData.today, change: productData.percentage, color: '#F59E0B', icon: 'cube-outline' },
+            { label: 'Órdenes', value: orderData.total, today: orderData.today, change: orderData.percentage, color: '#EC4899', icon: 'receipt-outline' },
+          ].map((kpi) => (
             <View key={kpi.label} style={styles.kpiCard}>
               <View style={styles.kpiHeader}>
-                <View style={[styles.kpiIcon, { backgroundColor: `${kpi.color}15` }]}>
-                  <Ionicons name={kpi.icon as any} size={18} color={kpi.color} />
-                </View>
-                <View style={[styles.changeBadge, { backgroundColor: `${kpi.color}10` }]}>
-                  <Text style={[styles.changeText, { color: kpi.color }]}>{kpi.change}</Text>
-                </View>
+                <View style={[styles.kpiIcon, { backgroundColor: `${kpi.color}15` }]}><Ionicons name={kpi.icon as any} size={18} color={kpi.color} /></View>
+                <View style={[styles.changeBadge, { backgroundColor: `${kpi.color}10` }]}><Text style={[styles.changeText, { color: kpi.color }]}>{kpi.change}</Text></View>
               </View>
-              <Text style={styles.kpiValue}>{kpi.value}</Text>
+              <View style={styles.kpiValueRow}>
+                <Text style={styles.kpiValue}>{kpi.value.toLocaleString()}</Text>
+                <Text style={styles.kpiToday}>({kpi.today} hoy)</Text>
+              </View>
               <Text style={styles.kpiLabel}>{kpi.label}</Text>
             </View>
           ))}
         </View>
 
-        {/* Revenue Evolution - Hidden on 'Diarios' */}
-        {viewType !== 'Diarios' && (
-          <View style={styles.chartCard}>
-            <View style={styles.chartCardHeader}>
-              <View>
-                <Text style={styles.chartTitle}>Evolución de Ingresos ({viewType})</Text>
-                <Text style={styles.chartSubtitle}>Rendimiento comparativo del periodo seleccionado</Text>
-              </View>
-              <View style={styles.chartLegend}>
-                  <View style={[styles.dot, { backgroundColor: '#10B981' }]} />
-                  <Text style={styles.legendText}>Ventas</Text>
-              </View>
-            </View>
-            {renderWaveChart()}
-            <View style={styles.xAxis}>
-               {['01', '03', '05', '07', '09', '11', '13', '15'].map(d => (
-                 <Text key={d} style={styles.xText}>{d} Mar</Text>
-               ))}
-            </View>
-          </View>
-        )}
-
-        {/* In the 'Diarios' view, we can show more detailed KPIs or simply the list */}
-        {viewType === 'Diarios' && (
-          <View style={styles.dailyMessageCard}>
-             <Ionicons name="analytics" size={32} color="#10B981" />
-             <Text style={styles.dailyMessageTitle}>Vista Diaria Detallada</Text>
-             <Text style={styles.dailyMessageText}>
-               El gráfico de evolución está oculto. Revisa las métricas superiores para el rendimiento de hoy.
-             </Text>
-          </View>
-        )}
-
-        {/* Recent Activity Section */}
-        <View style={styles.activitySection}>
-          <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Actividad Reciente</Text>
-              <TouchableOpacity><Text style={styles.seeMore}>Ver Detalle</Text></TouchableOpacity>
-          </View>
-          <View style={[styles.activityList, isDesktop && styles.activityListDesktop]}>
-              {[
-                { id: '1', name: 'Alimento Premium', time: 'hace 5m', amt: '$120' },
-                { id: '2', name: 'Juguete Mordedor', time: 'hace 12m', amt: '$45' },
-                { id: '3', name: 'Consulta Médica', time: 'hace 30m', amt: '$300' },
-                { id: '4', name: 'Higiene Canina', time: 'hace 1h', amt: '$150' },
-              ].map((item) => (
-                <View key={item.id} style={styles.activityRow}>
-                  <View style={styles.activityDot} />
-                  <View style={styles.activityInfo}>
-                    <Text style={styles.activityName}>{item.name}</Text>
-                    <Text style={styles.activityTime}>{item.time}</Text>
+        <View style={[styles.mainBody, isDesktop && styles.mainBodyDesktop]}>
+          <View style={[styles.leftColumn, isDesktop && styles.leftColumnDesktop]}>
+            <View style={[styles.premiumCard, isDesktop && { flex: 1 }]}>
+              <View style={[styles.chartHeaderContainer, !isDesktop && styles.chartHeaderContainerMobile]}>
+                <View style={styles.chartHeaderInfo}>
+                  <Text style={styles.chartTypeTitle}>{currentConfig.title}</Text>
+                  <View style={styles.revenueRow}><Text style={styles.revenueCurrency}>CLP</Text><Text style={styles.revenueValue}>{currentConfig.stats.current.toLocaleString()}</Text></View>
+                  <View style={styles.trendRow}>
+                    <Ionicons name={currentConfig.stats.trend.startsWith('+') ? "trending-up" : "trending-down"} size={14} color={currentConfig.stats.trend.startsWith('+') ? "#10B981" : "#EF4444"} />
+                    <Text style={[styles.trendText, { color: currentConfig.stats.trend.startsWith('+') ? "#10B981" : "#EF4444" }]}>{currentConfig.stats.trend} <Text style={styles.trendSub}>{currentConfig.stats.label}</Text></Text>
                   </View>
-                  <Text style={styles.activityAmt}>{item.amt}</Text>
                 </View>
-              ))}
+                <View style={[styles.tabsSection, !isDesktop && styles.tabsSectionMobile]}>
+                  <View style={[styles.periodTabs, !isDesktop && { justifyContent: 'space-between' }]}>
+                    {['Diario', 'Semanal', 'Mensual', 'Anual'].map((tab) => (
+                      <TouchableOpacity key={tab} onPress={() => setViewType(tab)} style={[styles.tabItem, viewType === tab && styles.tabItemActive, !isDesktop && { flex: 1, alignItems: 'center' }]}>
+                        <Text style={[styles.tabText, viewType === tab && styles.tabTextActive, !isDesktop && { fontSize: 11 }]}>{tab}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              </View>
+              <View style={[styles.chartOuterWrapper, { paddingBottom: 10 }]} onLayout={onLayout}>{renderSVGChart()}</View>
+            </View>
+          </View>
+
+          <View style={[styles.rightColumn, isDesktop && styles.rightColumnDesktop]}>
+            <View style={[styles.premiumCard, isDesktop && { flex: 1 }]}>
+              <View style={styles.topProductsHeader}><Text style={styles.topProductsTitle}>Top 5 Productos del Mes</Text></View>
+              <View style={styles.productsList}>
+                {analytics.topProducts.length === 0 ? (
+                  <View style={{ alignItems: 'center', paddingVertical: 40 }}><Ionicons name="basket-outline" size={40} color="#CBD5E1" /><Text style={{ color: '#94A3B8', marginTop: 10, fontWeight: '600' }}>Sin ventas este mes</Text></View>
+                ) : analytics.topProducts.map((item, idx) => (
+                  <View key={idx} style={styles.productRow}>
+                    <View style={styles.productImageContainer}>
+                      {item.photo ? (
+                        <Image source={{ uri: item.photo }} style={styles.productThumb} />
+                      ) : (
+                        <View style={[styles.productIconFallback, { backgroundColor: `${item.color}15` }]}><Ionicons name="cube-outline" size={16} color={item.color} /></View>
+                      )}
+                    </View>
+                    <View style={styles.productMainInfo}>
+                      <Text style={styles.productName} numberOfLines={1}>{item.name}</Text>
+                      <View style={styles.salesProgressContainer}>
+                        <View style={styles.progressBarBg}><View style={[styles.progressBarFill, { width: `${Math.min(100, (item.quantity / analytics.topProducts[0].quantity) * 100)}%`, backgroundColor: item.color }]} /></View>
+                        <Text style={{ fontSize: 11, fontWeight: '800', color: '#64748B' }}>{item.quantity} uds.</Text>
+                      </View>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </View>
           </View>
         </View>
-
       </ScrollView>
-      {renderPeriodPicker()}
     </SafeAreaView>
   );
 }
@@ -168,92 +321,60 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#ffffff' },
   content: { padding: 16, paddingBottom: 100 },
   contentDesktop: { padding: 32, width: '100%' },
-  
-  header: { 
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', 
-    marginBottom: 24, flexWrap: 'wrap', gap: 12
-  },
-  title: { fontSize: 22, fontWeight: '900', color: '#0F172A', letterSpacing: -0.5 },
-  subtitle: { fontSize: 13, color: '#64748B', marginTop: 2 },
-  
-  filterBtn: { 
-    flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#fff',
-    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10,
-    borderWidth: 1, borderColor: '#F1F5F9'
-  },
-  filterText: { fontSize: 13, fontWeight: '700', color: '#0F172A' },
-
+  mainHeader: { marginBottom: 32 },
+  titleSection: { flex: 1 },
+  title: { fontSize: 28, fontWeight: '900', color: '#0F172A', letterSpacing: -1.2 },
+  subtitle: { fontSize: 15, color: '#64748B', marginTop: 4, fontWeight: '500' },
+  chartHeaderContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, gap: 16 },
+  chartHeaderContainerMobile: { flexDirection: 'column', alignItems: 'stretch', gap: 20 },
+  tabsSection: { backgroundColor: '#F1F5F9', padding: 4, borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0' },
+  tabsSectionMobile: { width: '100%', marginTop: 0 },
+  periodTabs: { flexDirection: 'row', gap: 2 },
+  tabItem: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12 },
+  tabItemActive: { backgroundColor: '#10B981' },
+  tabText: { fontSize: 12, fontWeight: '800', color: '#64748B' },
+  tabTextActive: { color: '#fff' },
   kpiGrid: { gap: 12, marginBottom: 24 },
   kpiGridDesktop: { flexDirection: 'row' },
-  kpiCard: { 
-    flex: 1, backgroundColor: '#fff', borderRadius: 16, padding: 16,
-    borderWidth: 1, borderColor: '#F1F5F9',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.02, shadowRadius: 10
-  },
-  kpiHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  kpiIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  changeBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  kpiCard: { flex: 1, backgroundColor: '#fff', borderRadius: 24, padding: 24, borderWidth: 1, borderColor: '#F1F5F9', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.03, shadowRadius: 30, elevation: 2 },
+  kpiHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  kpiIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  changeBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
   changeText: { fontSize: 11, fontWeight: '800' },
-  kpiValue: { fontSize: 20, fontWeight: '900', color: '#0F172A' },
-  kpiLabel: { fontSize: 12, color: '#64748B', fontWeight: '600', marginTop: 2 },
-
-  chartCard: { 
-    backgroundColor: '#fff', borderRadius: 24, padding: 24,
-    borderWidth: 1, borderColor: '#F1F5F9', marginBottom: 24
-  },
-  chartCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 },
-  chartTitle: { fontSize: 16, fontWeight: '900', color: '#0F172A' },
-  chartSubtitle: { fontSize: 12, color: '#94A3B8', marginTop: 2 },
-  chartLegend: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-  legendText: { fontSize: 12, fontWeight: '700', color: '#64748B' },
-  
-  waveChart: { 
-    height: 180, flexDirection: 'row', alignItems: 'flex-end', gap: 8, 
-    borderBottomWidth: 1, borderBottomColor: '#F8FAFC' 
-  },
-  waveBar: { flex: 1, backgroundColor: '#ECFDF5', borderRadius: 6, position: 'relative' },
-  waveCap: { position: 'absolute', top: 0, left: 0, right: 0, height: 3, borderRadius: 1.5 },
-  
-  xAxis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12, paddingHorizontal: 4 },
-  xText: { fontSize: 10, fontWeight: '700', color: '#94A3B8' },
-
-  dailyMessageCard: { 
-    padding: 32, alignItems: 'center', justifyContent: 'center', 
-    backgroundColor: '#F8FAFC', borderRadius: 24, marginBottom: 24,
-    borderStyle: 'dashed', borderWidth: 1, borderColor: '#CBD5E1'
-  },
-  dailyMessageTitle: { fontSize: 16, fontWeight: '800', color: '#0F172A', marginTop: 12 },
-  dailyMessageText: { fontSize: 13, color: '#64748B', marginTop: 4, textAlign: 'center' },
-
-  activitySection: { marginBottom: 24 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  sectionTitle: { fontSize: 16, fontWeight: '900', color: '#0F172A' },
-  seeMore: { fontSize: 12, fontWeight: '700', color: '#10B981' },
-  activityList: { gap: 8 },
-  activityListDesktop: { flexDirection: 'row', flexWrap: 'wrap' },
-  activityRow: { 
-    flex: 1, minWidth: Platform.OS === 'web' ? '48%' : '100%',
-    flexDirection: 'row', alignItems: 'center', padding: 12, gap: 12,
-    backgroundColor: '#F8FAFC', borderRadius: 12
-  },
-  activityDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#CBD5E1' },
-  activityInfo: { flex: 1 },
-  activityName: { fontSize: 14, fontWeight: '700', color: '#0F172A' },
-  activityTime: { fontSize: 12, color: '#94A3B8' },
-  activityAmt: { fontSize: 14, fontWeight: '800', color: '#0F172A' },
-
-  /* Modal Picker */
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.4)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  pickerContent: { 
-    width: Platform.OS === 'web' ? 300 : '100%', backgroundColor: '#fff', 
-    borderRadius: 20, padding: 8, overflow: 'hidden' 
-  },
-  pickerItem: { 
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', 
-    paddingHorizontal: 20, paddingVertical: 14, borderRadius: 12 
-  },
-  pickerItemActive: { backgroundColor: '#F8FAFC' },
-  pickerText: { fontSize: 14, fontWeight: '700', color: '#64748B' },
-  pickerTextActive: { color: '#0F172A' },
+  kpiValueRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
+  kpiValue: { fontSize: 26, fontWeight: '900', color: '#0F172A' },
+  kpiToday: { fontSize: 13, fontWeight: '700', color: '#94A3B8' },
+  kpiLabel: { fontSize: 14, color: '#64748B', fontWeight: '600', marginTop: 4 },
+  mainBody: { gap: 24 },
+  mainBodyDesktop: { flexDirection: 'row', alignItems: 'stretch' },
+  leftColumn: { },
+  leftColumnDesktop: { flex: 0.65 },
+  rightColumn: { },
+  rightColumnDesktop: { flex: 0.35 },
+  premiumCard: { backgroundColor: '#fff', borderRadius: 24, padding: 24, borderWidth: 1, borderColor: '#F1F5F9', shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.04, shadowRadius: 40, elevation: 3 },
+  chartHeaderInfo: { flex: 1 },
+  chartTypeTitle: { fontSize: 13, fontWeight: '700', color: '#64748B', marginBottom: 6 },
+  revenueRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4, marginBottom: 2 },
+  revenueCurrency: { fontSize: 14, fontWeight: '700', color: '#0F172A' },
+  revenueValue: { fontSize: 28, fontWeight: '900', color: '#0F172A', letterSpacing: -0.5 },
+  trendText: { fontSize: 12, fontWeight: '800' },
+  trendSub: { color: '#94A3B8', fontWeight: '600', fontSize: 11 },
+  trendRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  chartOuterWrapper: { width: '100%', marginTop: 10 },
+  chartContainer: { position: 'relative', width: '100%' },
+  svgStyle: { overflow: 'visible' },
+  xAxis: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 30 },
+  xLabel: { position: 'absolute', fontSize: 10, fontWeight: '800', color: '#94A3B8', textAlign: 'center' },
+  topProductsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  topProductsTitle: { fontSize: 16, fontWeight: '900', color: '#0F172A' },
+  productsList: { gap: 12 },
+  productRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, backgroundColor: '#f8fafc', borderRadius: 16 },
+  productImageContainer: { width: 40, height: 40, borderRadius: 10, overflow: 'hidden', backgroundColor: '#fff' },
+  productThumb: { width: '100%', height: '100%', resizeMode: 'cover' },
+  productIconFallback: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
+  productMainInfo: { flex: 1 },
+  productName: { fontSize: 13, fontWeight: '800', color: '#1F2937', marginBottom: 6 },
+  salesProgressContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  progressBarBg: { flex: 1, height: 4, backgroundColor: '#E2E8F0', borderRadius: 2 },
+  progressBarFill: { height: '100%', borderRadius: 2 },
 });
