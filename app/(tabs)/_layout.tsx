@@ -43,8 +43,8 @@ export default function TabsLayout() {
                 'publicidad',
                 'nuevo-producto/[tipo]',
                 'editar-producto/[id]',
-                'orden/[id]',
-                'perfil-completo'
+                'perfil-completo',
+                'agenda'
               ];
               if (isDesktop || hideOnMobile.includes(currentRoute)) return null;
               return <MobileTabBar {...props} />;
@@ -53,6 +53,7 @@ export default function TabsLayout() {
             <Tabs.Screen name="hogar" />
             <Tabs.Screen name="productos" />
             <Tabs.Screen name="promocion" />
+            <Tabs.Screen name="servicios" />
             <Tabs.Screen name="ordenes" />
             <Tabs.Screen name="publicidad" options={{ href: null }} />
             <Tabs.Screen name="cuenta" />
@@ -64,6 +65,7 @@ export default function TabsLayout() {
             <Tabs.Screen name="editar-producto/[id]" options={{ href: null }} />
             <Tabs.Screen name="orden/[id]" options={{ href: null }} />
             <Tabs.Screen name="categorias" options={{ href: null }} />
+            <Tabs.Screen name="agenda" options={{ href: null }} />
           </Tabs>
         </View>
       </View>

@@ -14,6 +14,7 @@ const TABS = [
   { name: 'hogar', label: 'Hogar', icon: 'home' as const },
   { name: 'productos', label: 'Productos', icon: 'grid' as const },
   { name: 'promocion', label: 'Promoción', icon: 'pricetag' as const },
+  { name: 'servicios', label: 'Servicios', icon: 'briefcase' as const },
   { name: 'ordenes', label: 'Órdenes', icon: 'receipt' as const },
   { name: 'cuenta', label: 'Cuenta', icon: 'person' as const },
 ];

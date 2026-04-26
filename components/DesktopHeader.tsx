@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { usePathname } from 'expo-router';
 import NotifyClientsModal from './NotifyClientsModal';
+import ShopScheduleModal from './ShopScheduleModal';
 
 const PAGE_TITLES: Record<string, string> = {
   hogar: 'Hogar',
@@ -34,6 +35,7 @@ export default function DesktopHeader({
   const currentPage = segments[segments.length - 1] ?? 'hogar';
   const title = PAGE_TITLES[currentPage] ?? 'Panel';
   const [notifyModalOpen, setNotifyModalOpen] = React.useState(false);
+  const [scheduleModalOpen, setScheduleModalOpen] = React.useState(false);
   const [unreadCount, setUnreadCount] = React.useState(0);
 
   React.useEffect(() => {
@@ -86,6 +88,7 @@ export default function DesktopHeader({
       </View>
 
       <NotifyClientsModal visible={notifyModalOpen} onClose={() => setNotifyModalOpen(false)} />
+      <ShopScheduleModal visible={scheduleModalOpen} onClose={() => setScheduleModalOpen(false)} />
     </>
   );
 }

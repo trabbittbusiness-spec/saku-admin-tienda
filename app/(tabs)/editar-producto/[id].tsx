@@ -20,6 +20,8 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Animated } from 'react-native';
+import { auth, storage } from '../../../lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 interface InputProps {
   label: string;
@@ -338,14 +340,56 @@ export default function EditarProductoScreen() {
     if (!result.canceled) setter(result.assets[0].uri);
   };
 
+
+  const uploadImage = async (uri: string | null) => {
+    if (!uri) return '';
+    if (uri.startsWith('http')) return uri; // Already a URL, don't re-upload
+
+    try {
+      const userId = auth.currentUser?.uid || 'anonymous';
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      
+      const timestamp = Date.now() + Math.floor(Math.random() * 1000).toString();
+      const filename = `${timestamp}.jpg`;
+      const storageRef = ref(storage, `users/${userId}/uploads/${filename}`);
+      
+      await uploadBytes(storageRef, blob);
+      return await getDownloadURL(storageRef);
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      return uri; // Return original if upload fails
+    }
+  };
+
   const handleUpdate = async () => {
     if (!nombre || !precio) { alert('Completa los campos obligatorios'); return; }
     try {
       setLoading(true);
+
+      // Upload new images if needed
+      const [url1, url2, url3] = await Promise.all([
+        uploadImage(foto1),
+        uploadImage(foto2),
+        uploadImage(foto3)
+      ]);
+
       await updateDoc(doc(db, 'Products', id as string), {
-        nombre, precio: parseFloat(precio) || 0, medida, Cantidadcreada: parseInt(cantidadCreada) || 0,
-        descripcion, categoria, animal: animalSelected, marca, estadoPromocion,
-        disponibilidad, Receta, sizes, foto1, foto2, foto3, 
+        nombre, 
+        precio: parseFloat(precio) || 0, 
+        medida, 
+        Cantidadcreada: parseInt(cantidadCreada) || 0,
+        descripcion, 
+        categoria, 
+        animal: animalSelected, 
+        marca, 
+        estadoPromocion,
+        disponibilidad, 
+        Receta, 
+        sizes, 
+        foto1: url1, 
+        foto2: url2, 
+        foto3: url3, 
         Tipo: tipo,
         actualizadoEn: serverTimestamp()
       });

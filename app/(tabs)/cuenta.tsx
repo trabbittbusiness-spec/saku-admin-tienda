@@ -8,6 +8,7 @@ import {
   useWindowDimensions,
   Platform,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,6 +16,7 @@ import { router } from 'expo-router';
 import { auth, db } from '../../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
+import ShopScheduleModal from '../../components/ShopScheduleModal';
 
 
 export default function CuentaScreen() {
@@ -23,6 +25,7 @@ export default function CuentaScreen() {
 
   const [userData, setUserData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -60,8 +63,19 @@ export default function CuentaScreen() {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.headerArea}>
-        <Text style={styles.pageTitle}>Mi Espacio</Text>
-        <Text style={styles.pageSubtitle}>Administra tu cuenta y configura tu entorno de trabajo</Text>
+        <View style={styles.titleRow}>
+          <View>
+            <Text style={styles.pageTitle}>Mi Espacio</Text>
+            <Text style={styles.pageSubtitle}>Mi perfil de admin</Text>
+          </View>
+          <TouchableOpacity 
+            style={styles.headerIconBtn} 
+            onPress={() => setScheduleModalOpen(true)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="time-outline" size={28} color="#0F172A" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={[styles.bentoLayout, isDesktop && styles.bentoLayoutDesktop]}>
@@ -173,21 +187,38 @@ export default function CuentaScreen() {
             )}
           </View>
 
+            {/* Agenda for Mobile */}
+            {!isDesktop && (
+              <TouchableOpacity 
+                style={[styles.bentoCard, styles.gridItem]} 
+                activeOpacity={0.7}
+                onPress={() => router.push('/agenda')}
+              >
+                <View style={[styles.iconWrapper, { backgroundColor: '#F0F9FF' }]}>
+                  <Ionicons name="calendar-outline" size={24} color="#0EA5E9" />
+                </View>
+                <Text style={styles.itemTitle}>Agenda</Text>
+                <Text style={styles.itemDesc}>Gestiona tus citas del día y horarios programados.</Text>
+              </TouchableOpacity>
+            )}
 
-        </View>
+          </View>
+
 
       </View>
     </ScrollView>
   );
 
-  if (!isDesktop) {
-    return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        {Content}
-      </SafeAreaView>
-    );
-  }
-  return <View style={{ flex: 1, backgroundColor: '#ffffff' }}>{Content}</View>;
+  return (
+    <View style={{ flex: 1, backgroundColor: '#ffffff' }}>
+      {isDesktop ? Content : (
+        <SafeAreaView style={styles.safeArea} edges={['top']}>
+          {Content}
+        </SafeAreaView>
+      )}
+      <ShopScheduleModal visible={scheduleModalOpen} onClose={() => setScheduleModalOpen(false)} />
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -198,7 +229,20 @@ const styles = StyleSheet.create({
 
   headerArea: {
     marginBottom: 40,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'flex-start',
+    width: '100%',
+  },
+  headerIconBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   pageTitle: {
     fontSize: 32,

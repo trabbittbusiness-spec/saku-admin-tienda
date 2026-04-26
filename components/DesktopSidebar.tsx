@@ -10,7 +10,10 @@ const NAV_ITEMS = [
   { name: 'hogar',     label: 'Hogar',     activeIcon: 'home-outline',        inactiveIcon: 'home-outline' },
   { name: 'productos', label: 'Productos', activeIcon: 'grid',                inactiveIcon: 'grid-outline' },
   { name: 'promocion', label: 'Promoción', activeIcon: 'pricetag',            inactiveIcon: 'pricetag-outline' },
+  { name: 'servicios', label: 'Servicios', activeIcon: 'briefcase',           inactiveIcon: 'briefcase-outline' },
+  { name: 'agenda',    label: 'Agenda',    activeIcon: 'calendar',            inactiveIcon: 'calendar-outline' },
   { name: 'ordenes',   label: 'Órdenes',   activeIcon: 'receipt',             inactiveIcon: 'receipt-outline' },
+
   { name: 'publicidad',label: 'Publicidad',activeIcon: 'megaphone',           inactiveIcon: 'megaphone-outline' },
   { name: 'cuenta',    label: 'Mi Cuenta', activeIcon: 'person',              inactiveIcon: 'person-outline' },
 ] as const;

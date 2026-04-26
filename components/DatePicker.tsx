@@ -13,10 +13,12 @@ import { Ionicons } from '@expo/vector-icons';
 interface DatePickerProps {
   value: string;
   onChange: (date: string) => void;
-  label: string;
+  label?: string;
+  hideLabel?: boolean;
+  containerStyle?: any;
 }
 
-export const DatePicker = ({ value, onChange, label }: DatePickerProps) => {
+export const DatePicker = ({ value, onChange, label, hideLabel, containerStyle }: DatePickerProps) => {
   const [showModal, setShowModal] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
@@ -96,8 +98,8 @@ export const DatePicker = ({ value, onChange, label }: DatePickerProps) => {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
+    <View style={[styles.container, containerStyle]}>
+      {label && !hideLabel && <Text style={styles.label}>{label}</Text>}
       <TouchableOpacity 
         style={styles.inputTrigger} 
         onPress={() => setShowModal(true)}

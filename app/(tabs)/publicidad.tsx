@@ -498,7 +498,7 @@ export default function PublicidadScreen() {
   const isDesktop = Platform.OS === 'web' && width >= 1024;
   const router = useRouter();
   
-  const [currentView, setCurrentView] = useState<'banners' | 'portadas'>('banners');
+  const [currentView, setCurrentView] = useState<'banners' | 'portadas' | 'masivo'>('banners');
   const [banners, setBanners] = useState<any[]>([]);
   const [portadas, setPortadas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -531,6 +531,51 @@ export default function PublicidadScreen() {
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ visible: true, message, type });
+  };
+
+  const [subscribers, setSubscribers] = useState<any[]>([]);
+  const [campaignTitle, setCampaignTitle] = useState('');
+  const [campaignBody, setCampaignBody] = useState('');
+  const [sendingCampaign, setSendingCampaign] = useState(false);
+
+  useEffect(() => {
+    const unsubSubscribers = onSnapshot(collection(db, 'Newsletter'), (snapshot) => {
+      setSubscribers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsubSubscribers();
+  }, []);
+
+  const handleSendCampaign = async () => {
+    if (!campaignTitle || !campaignBody) {
+      showToast('Por favor completa el título y mensaje', 'error');
+      return;
+    }
+    if (subscribers.length === 0) {
+      showToast('No hay suscriptores para enviar', 'error');
+      return;
+    }
+
+    setSendingCampaign(true);
+    try {
+      // Solo necesitamos crear UN documento en NewsletterCampaigns
+      // La Cloud Function 'onNewsletterCampaignCreated' se encargará del envío masivo
+      await addDoc(collection(db, 'NewsletterCampaigns'), {
+        title: campaignTitle,
+        body: campaignBody,
+        sentAt: serverTimestamp(),
+        recipientCount: subscribers.length,
+        status: 'sent'
+      });
+
+      showToast(`¡Campaña programada con éxito! Firebase enviará los correos en breve.`);
+      setCampaignTitle('');
+      setCampaignBody('');
+    } catch (error) {
+      console.error('Error sending campaign:', error);
+      showToast('Error al enviar campaña', 'error');
+    } finally {
+      setSendingCampaign(false);
+    }
   };
 
   useEffect(() => {
@@ -783,6 +828,13 @@ export default function PublicidadScreen() {
                 <Ionicons name="grid-outline" size={18} color={currentView === 'portadas' ? '#fff' : '#64748B'} />
                 <Text style={[styles.toggleText, currentView === 'portadas' && styles.toggleTextActive]}>Portadas</Text>
               </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.toggleBtn, currentView === 'masivo' && styles.toggleBtnActive]} 
+                onPress={() => setCurrentView('masivo')}
+              >
+                <Ionicons name="megaphone-outline" size={18} color={currentView === 'masivo' ? '#fff' : '#64748B'} />
+                <Text style={[styles.toggleText, currentView === 'masivo' && styles.toggleTextActive]}>Marketing</Text>
+              </TouchableOpacity>
             </View>
           )}
 
@@ -811,6 +863,13 @@ export default function PublicidadScreen() {
             >
               <Ionicons name="grid-outline" size={18} color={currentView === 'portadas' ? '#fff' : '#64748B'} />
               <Text style={[styles.toggleText, currentView === 'portadas' && styles.toggleTextActive]}>Portadas</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.toggleBtn, currentView === 'masivo' && styles.toggleBtnActive]} 
+              onPress={() => setCurrentView('masivo')}
+            >
+              <Ionicons name="megaphone-outline" size={18} color={currentView === 'masivo' ? '#fff' : '#64748B'} />
+              <Text style={[styles.toggleText, currentView === 'masivo' && styles.toggleTextActive]}>Marketing</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -872,7 +931,7 @@ export default function PublicidadScreen() {
               </View>
             ))}
           </View>
-        ) : (
+        ) : currentView === 'portadas' ? (
           <View style={[styles.portadasContainer, { padding: isDesktop ? 32 : 16 }]}>
             <View style={[styles.portadasHeader, { marginBottom: isDesktop ? 40 : 24 }]}>
               <View style={[styles.iconBox, { backgroundColor: '#EEF2FF' }]}>
@@ -949,6 +1008,17 @@ export default function PublicidadScreen() {
               })}
             </View>
           </View>
+        ) : (
+          <MasivoView 
+            isDesktop={isDesktop}
+            subscribers={subscribers}
+            campaignTitle={campaignTitle}
+            setCampaignTitle={setCampaignTitle}
+            campaignBody={campaignBody}
+            setCampaignBody={setCampaignBody}
+            onSend={handleSendCampaign}
+            sending={sendingCampaign}
+          />
         )}
 
       </ScrollView>
@@ -1188,3 +1258,116 @@ const styles = StyleSheet.create({
   modalDeleteBtn: { flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: '#EF4444', alignItems: 'center', shadowColor: '#EF4444', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8 },
   modalDeleteText: { color: '#fff', fontWeight: '800', fontSize: 14 },
 });
+
+function MasivoView({ 
+  isDesktop, 
+  subscribers, 
+  campaignTitle, 
+  setCampaignTitle, 
+  campaignBody, 
+  setCampaignBody, 
+  onSend,
+  sending 
+}: any) {
+  return (
+    <View style={{ flex: 1, padding: isDesktop ? 32 : 16 }}>
+      <View style={{ flexDirection: isDesktop ? 'row' : 'column', gap: 32 }}>
+        
+        {/* LADO IZQUIERDO: COMPOSICIÓN */}
+        <View style={{ flex: 1.5, backgroundColor: '#fff', borderRadius: 24, padding: isDesktop ? 32 : 20, borderWidth: 1, borderColor: '#F1F5F9' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+            <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#FEF3C7', alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="mail" size={20} color="#D97706" />
+            </View>
+            <Text style={{ fontSize: 20, fontWeight: '900', color: '#0F172A' }}>Crear Publicidad Masiva</Text>
+          </View>
+
+          <Text style={{ color: '#64748B', fontSize: 13, marginBottom: 24 }}>
+            Esta herramienta permite enviar un correo electrónico a todos los usuarios que se han suscrito a través de la tienda.
+          </Text>
+
+          <View style={{ gap: 20 }}>
+            <View>
+              <Text style={{ fontSize: 12, fontWeight: '800', color: '#475569', marginBottom: 8 }}>TÍTULO DE LA CAMPAÑA</Text>
+              <TextInput 
+                style={{ backgroundColor: '#F8FAFC', borderRadius: 12, padding: 16, fontSize: 16, borderWidth: 1, borderColor: '#E2E8F0', color: '#0F172A' }}
+                placeholder="Ej: ¡Ofertas Relámpago este fin de semana!"
+                value={campaignTitle}
+                onChangeText={setCampaignTitle}
+              />
+            </View>
+
+            <View>
+              <Text style={{ fontSize: 12, fontWeight: '800', color: '#475569', marginBottom: 8 }}>MENSAJE PUBLICITARIO</Text>
+              <TextInput 
+                style={{ backgroundColor: '#F8FAFC', borderRadius: 12, padding: 16, fontSize: 16, borderWidth: 1, borderColor: '#E2E8F0', color: '#0F172A', minHeight: 200 }}
+                placeholder="Escribe aquí el contenido de tu publicidad..."
+                multiline
+                numberOfLines={10}
+                textAlignVertical="top"
+                value={campaignBody}
+                onChangeText={setCampaignBody}
+              />
+            </View>
+
+            <TouchableOpacity 
+              onPress={onSend}
+              disabled={sending}
+              style={{ 
+                backgroundColor: '#10B981', 
+                paddingVertical: 18, 
+                borderRadius: 14, 
+                alignItems: 'center', 
+                flexDirection: 'row', 
+                justifyContent: 'center', 
+                gap: 12,
+                marginTop: 10,
+                opacity: sending ? 0.7 : 1,
+                shadowColor: '#10B981', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8
+              }}
+            >
+              {sending ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Text style={{ color: '#fff', fontSize: 16, fontWeight: '900' }}>Enviar Publicidad Masiva</Text>
+                  <Ionicons name="paper-plane" size={18} color="#fff" />
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* LADO DERECHO: AUDIENCIA */}
+        <View style={{ flex: 1, gap: 24 }}>
+          <View style={{ backgroundColor: '#F8FAFC', borderRadius: 24, padding: 24, borderWidth: 1, borderColor: '#E2E8F0' }}>
+            <Text style={{ fontSize: 14, fontWeight: '800', color: '#475569', marginBottom: 16 }}>AUDIENCIA ACTUAL</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+              <Text style={{ fontSize: 48, fontWeight: '900', color: '#3B1E54' }}>{subscribers.length}</Text>
+              <View>
+                <Text style={{ fontSize: 16, fontWeight: '800', color: '#0F172A' }}>Suscriptores</Text>
+                <Text style={{ fontSize: 12, color: '#64748B' }}>Correos listos para envío</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={{ flex: 1, backgroundColor: '#fff', borderRadius: 24, padding: 24, borderWidth: 1, borderColor: '#F1F5F9' }}>
+            <Text style={{ fontSize: 14, fontWeight: '800', color: '#475569', marginBottom: 16 }}>LISTA DE CORREOS</Text>
+            <ScrollView style={{ maxHeight: isDesktop ? 400 : 250 }}>
+              {subscribers.map((sub: any, idx: number) => (
+                <View key={sub.id || idx} style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F1F5F9', flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#10B981' }} />
+                  <Text style={{ color: '#0F172A', fontSize: 14, fontWeight: '500' }}>{sub.email}</Text>
+                </View>
+              ))}
+              {subscribers.length === 0 && (
+                <Text style={{ color: '#94A3B8', fontStyle: 'italic', textAlign: 'center', marginTop: 20 }}>No hay suscriptores aún</Text>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+
+      </View>
+    </View>
+  );
+}

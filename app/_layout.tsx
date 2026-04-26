@@ -20,7 +20,7 @@ if (typeof window !== 'undefined') {
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
-    ...Ionicons.font,
+    'Ionicons': require('../assets/fonts/Ionicons.ttf'),
   });
 
   const [loading, setLoading] = useState(true);
@@ -34,8 +34,14 @@ export default function RootLayout() {
     };
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      // Get current path using standard browser API for reliability on web
+      const path = typeof window !== 'undefined' ? window.location.pathname : '/';
+
       if (!user) {
         setLoading(false);
+        if (path !== '/login' && path !== '/forgot-password') {
+          router.replace('/login');
+        }
         return;
       } else {
         try {
@@ -43,18 +49,19 @@ export default function RootLayout() {
           const userDocSnap = await getDoc(userDocRef);
           
           if (userDocSnap.exists() && userDocSnap.data().IsAdmin === true) {
-            router.replace('/(tabs)/hogar');
+            if (path === '/login' || path === '/' || path === '/index') {
+              router.replace('/(tabs)/hogar');
+            }
           } else {
-            const segments = router.rootState?.routes;
-            const currentRoute = segments?.[segments.length - 1]?.name;
-
-            if (currentRoute !== 'login') {
+            // Not an admin or no doc
+            if (path !== '/login') {
               await signOut(auth);
               router.replace('/login');
             }
           }
         } catch (error) {
           console.error("Layout auth error:", error);
+          if (path !== '/login') router.replace('/login');
         } finally {
           setLoading(false);
         }

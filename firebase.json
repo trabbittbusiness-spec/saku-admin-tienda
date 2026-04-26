@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "site": "saku-tienda",
+    "site": "saku-admin",
     "public": "dist",
     "ignore": [
       "firebase.json",

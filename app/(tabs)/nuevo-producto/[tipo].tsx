@@ -19,6 +19,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import { auth, storage } from '../../../lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // Classification constants are now fetched dynamically from Firestore
 
@@ -307,6 +309,29 @@ export default function NuevoProductoScreen() {
   };
   const removeSize = (i: number) => setSizes((s) => s.filter((_, idx) => idx !== i));
 
+
+  const uploadImage = async (uri: string | null) => {
+    if (!uri) return '';
+    if (uri.startsWith('http')) return uri; // Already a URL
+
+    try {
+      const userId = auth.currentUser?.uid || 'anonymous';
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      
+      // Path format requested: users/{userId}/uploads/{timestamp}.jpg
+      const timestamp = Date.now() + Math.floor(Math.random() * 1000).toString();
+      const filename = `${timestamp}.jpg`;
+      const storageRef = ref(storage, `users/${userId}/uploads/${filename}`);
+      
+      await uploadBytes(storageRef, blob);
+      return await getDownloadURL(storageRef);
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      return '';
+    }
+  };
+
   const handleSave = async () => {
     if (!nombre || !precio) {
       alert('Por favor completa los campos obligatorios (Nombre y Precio)');
@@ -315,6 +340,14 @@ export default function NuevoProductoScreen() {
 
     try {
       setLoading(true);
+      
+      // Upload images first
+      const [url1, url2, url3] = await Promise.all([
+        uploadImage(foto1),
+        uploadImage(foto2),
+        uploadImage(foto3)
+      ]);
+
       const docData = {
         nombre,
         precio: parseFloat(precio) || 0,
@@ -329,9 +362,9 @@ export default function NuevoProductoScreen() {
         Receta,
         sizes,
         Tipo: 'General',
-        foto1: foto1 || '',
-        foto2: foto2 || '',
-        foto3: foto3 || '',
+        foto1: url1,
+        foto2: url2,
+        foto3: url3,
         createdAt: serverTimestamp(),
       };
 
