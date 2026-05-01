@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { Platform } from 'react-native';
-import { getAuth } from 'firebase/auth';
+import { getAuth, initializeAuth, getReactNativePersistence } from 'firebase/auth';
+import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 import { getFirestore } from 'firebase/firestore';
 import { getMessaging } from 'firebase/messaging';
 import { getFunctions } from 'firebase/functions';
@@ -18,7 +19,11 @@ const firebaseConfig = {
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-const auth = getAuth(app);
+const auth = Platform.OS === 'web' 
+    ? getAuth(app) 
+    : initializeAuth(app, {
+        persistence: getReactNativePersistence(ReactNativeAsyncStorage)
+      });
 const db = getFirestore(app);
 const functions = getFunctions(app);
 const storage = getStorage(app);

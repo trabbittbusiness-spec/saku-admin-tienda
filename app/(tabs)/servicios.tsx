@@ -21,7 +21,18 @@ import { collection, query, onSnapshot, addDoc, doc, updateDoc, deleteDoc, serve
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../lib/firebase';
 import * as ImagePicker from 'expo-image-picker';
-import { Video, ResizeMode } from 'expo-av';export default function ServiciosScreen() {
+// Safely import Video and ResizeMode to avoid crashes in environments without expo-av
+let Video: any = View;
+let ResizeMode: any = { COVER: 'cover', CONTAIN: 'contain', STRETCH: 'stretch', REPEAT: 'repeat', CENTER: 'center' };
+try {
+  const ExpoAV = require('expo-av');
+  Video = ExpoAV.Video;
+  ResizeMode = ExpoAV.ResizeMode;
+} catch (e) {
+  console.warn('expo-av could not be loaded:', e);
+}
+
+export default function ServiciosScreen() {
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 860;
   
