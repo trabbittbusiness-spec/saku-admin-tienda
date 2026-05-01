@@ -122,7 +122,7 @@ export default function PerfilCompletoScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#10B981" />
+        <ActivityIndicator size="large" color="#63348C" />
       </View>
     );
   }
@@ -303,9 +303,9 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 14, color: '#64748B', marginTop: 2, fontWeight: '500' },
   
   saveBtn: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#10B981', 
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#63348C', 
     paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, gap: 6,
-    shadowColor: '#10B981', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 10, elevation: 4,
+    shadowColor: '#63348C', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 10, elevation: 4,
   },
   saveBtnText: { color: '#fff', fontWeight: '800', fontSize: 13 },
 
@@ -325,10 +325,10 @@ const styles = StyleSheet.create({
 
   avatarContainer: { position: 'relative', width: 120, height: 120 },
   avatar: { width: 120, height: 120, borderRadius: 60, backgroundColor: '#F1F5F9' },
-  avatarPlaceholder: { width: 120, height: 120, borderRadius: 60, backgroundColor: '#6366F1', alignItems: 'center', justifyContent: 'center' },
+  avatarPlaceholder: { width: 120, height: 120, borderRadius: 60, backgroundColor: '#63348C', alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 48, fontWeight: '900', color: '#fff' },
   changePhotoBtn: {
-    position: 'absolute', bottom: 0, right: 0, backgroundColor: '#10B981',
+    position: 'absolute', bottom: 0, right: 0, backgroundColor: '#63348C',
     width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center',
     borderWidth: 3, borderColor: '#fff'
   },

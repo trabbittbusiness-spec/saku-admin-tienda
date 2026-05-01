@@ -3,11 +3,11 @@ import { View, Text, TouchableOpacity, StyleSheet, Pressable, Platform, ScrollVi
 import { Ionicons } from '@expo/vector-icons';
 import { usePathname, router } from 'expo-router';
 import { auth, db } from '../lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 
 const NAV_ITEMS = [
-  { name: 'hogar',     label: 'Hogar',     activeIcon: 'home-outline',        inactiveIcon: 'home-outline' },
+  { name: 'hogar',     label: 'Dashboard', activeIcon: 'home',                inactiveIcon: 'home-outline' },
   { name: 'productos', label: 'Productos', activeIcon: 'grid',                inactiveIcon: 'grid-outline' },
   { name: 'promocion', label: 'Promoción', activeIcon: 'pricetag',            inactiveIcon: 'pricetag-outline' },
   { name: 'servicios', label: 'Servicios', activeIcon: 'briefcase',           inactiveIcon: 'briefcase-outline' },
@@ -28,6 +28,7 @@ export default function DesktopSidebar({ open, isMobile, onClose }: Props) {
   const pathname = usePathname();
 
   const [userData, setUserData] = useState<any>(null);
+  const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -49,6 +50,22 @@ export default function DesktopSidebar({ open, isMobile, onClose }: Props) {
       } else {
         setUserData(null);
       }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    // Escuchar órdenes pendientes
+    const q = query(
+      collection(db, 'Orden'), 
+      where('estado', 'in', ['pendiente', 'Pendiente', 'procesando', 'en proceso', 'En proceso', 'en camino'])
+    );
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setPendingOrdersCount(snapshot.size);
+    }, (error) => {
+      console.error("Error listening to pending orders:", error);
     });
 
     return () => unsubscribe();
@@ -115,6 +132,11 @@ export default function DesktopSidebar({ open, isMobile, onClose }: Props) {
                   <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>
                     {item.label}
                   </Text>
+                  {item.name === 'ordenes' && pendingOrdersCount > 0 && (
+                    <View style={styles.badgeContainer}>
+                      <Text style={styles.badgeText}>{pendingOrdersCount}</Text>
+                    </View>
+                  )}
                   {isActive && <View style={styles.activeDot} />}
                 </>
               )}
@@ -128,10 +150,10 @@ export default function DesktopSidebar({ open, isMobile, onClose }: Props) {
         <View style={styles.bottomSection}>
           <View style={styles.divider} />
           <View style={styles.userCard}>
-            <View style={styles.avatarSmall}>
-              <Ionicons name="person" size={16} color="#6366F1" />
+            <View style={styles.avatarLarge}>
+              <Ionicons name="person" size={20} color="#FFFFFF" />
             </View>
-            <View style={{ flex: 1 }}>
+            <View style={{ flex: 1, marginLeft: 4 }}>
               <Text style={styles.userName} numberOfLines={1}>
                 {userData?.display_name || 'Cargando...'}
               </Text>
@@ -140,8 +162,11 @@ export default function DesktopSidebar({ open, isMobile, onClose }: Props) {
               </Text>
             </View>
 
-            <TouchableOpacity>
-              <Ionicons name="log-out-outline" size={18} color="#94A3B8" />
+            <TouchableOpacity 
+              onPress={() => auth.signOut()}
+              style={styles.logoutBtn}
+            >
+              <Ionicons name="log-out-outline" size={20} color="#EF4444" />
             </TouchableOpacity>
           </View>
         </View>
@@ -149,8 +174,8 @@ export default function DesktopSidebar({ open, isMobile, onClose }: Props) {
       {collapsed && (
         <View style={styles.bottomCollapsed}>
           <View style={styles.divider} />
-          <View style={styles.avatarSmall}>
-            <Ionicons name="person" size={16} color="#6366F1" />
+          <View style={styles.avatarLarge}>
+            <Ionicons name="person" size={20} color="#FFFFFF" />
           </View>
         </View>
       )}
@@ -173,17 +198,17 @@ export default function DesktopSidebar({ open, isMobile, onClose }: Props) {
 
 const styles = StyleSheet.create({
   sidebar: {
-    width: 260,
+    width: 240,
     backgroundColor: '#0F172A',
     paddingTop: Platform.OS === 'web' ? 32 : 50,
     paddingHorizontal: 16,
     paddingBottom: 24,
     flexDirection: 'column',
     height: '100%',
-    transition: 'width 0.25s ease',
+    boxShadow: '4px 0 24px rgba(0,0,0,0.05)',
   } as any,
   sidebarCollapsed: {
-    width: 68,
+    width: 72,
     paddingHorizontal: 10,
   },
   sidebarMobile: {
@@ -205,8 +230,8 @@ const styles = StyleSheet.create({
   logoSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    marginBottom: 28,
+    gap: 12,
+    marginBottom: 32,
     paddingHorizontal: 4,
   },
   logoSectionCollapsed: {
@@ -231,45 +256,66 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  brandName: { color: '#F8FAFC', fontSize: 16, fontWeight: '800', letterSpacing: -0.5 },
-  brandSub: { color: '#64748B', fontSize: 11, fontWeight: '600' },
+  brandName: { color: '#F8FAFC', fontSize: 16, fontWeight: '900', letterSpacing: -0.5 },
+  brandSub: { color: '#64748B', fontSize: 11, fontWeight: '700', marginTop: 1 },
   divider: { height: 1, backgroundColor: '#1E293B', marginVertical: 12 },
   nav: { flex: 1, marginTop: 4 },
   navItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingVertical: 14,
+    paddingVertical: 12,
     paddingHorizontal: 14,
     borderRadius: 12,
-    marginBottom: 4,
-  },
+    marginBottom: 6,
+    cursor: Platform.OS === 'web' ? 'pointer' : 'default',
+  } as any,
   navItemCollapsed: {
     justifyContent: 'center',
     paddingHorizontal: 0,
     gap: 0,
   },
-  navItemActive: { backgroundColor: '#6366F1' },
-  navLabel: { flex: 1, color: '#94A3B8', fontSize: 15, fontWeight: '500' },
-  navLabelActive: { color: '#fff', fontWeight: '600' },
-  activeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#A5B4FC' },
+  navItemActive: { backgroundColor: '#63348C' },
+  navLabel: { flex: 1, color: '#94A3B8', fontSize: 15, fontWeight: '600' },
+  navLabelActive: { color: '#fff', fontWeight: '700' },
+  activeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#A5B4FC', marginLeft: 8 },
+  badgeContainer: {
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginLeft: 8,
+    minWidth: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '800',
+  },
   bottomSection: {},
   bottomCollapsed: { alignItems: 'center' },
   userCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 4,
+    gap: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 6,
   },
-  avatarSmall: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: '#1E293B',
+  avatarLarge: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#63348C',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  userName: { color: '#F8FAFC', fontSize: 13, fontWeight: '600' },
-  userEmail: { color: '#64748B', fontSize: 11 },
+  userName: { color: '#F8FAFC', fontSize: 14, fontWeight: '700' },
+  userEmail: { color: '#64748B', fontSize: 12, marginTop: 1 },
+  logoutBtn: {
+    padding: 8,
+    borderRadius: 10,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+  },
 });

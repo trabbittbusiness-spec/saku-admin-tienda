@@ -157,7 +157,7 @@ function EditPortadaModal({
             />
             <View>
               <Text style={{ color: '#0F172A', fontSize: isMobile ? 13 : 15, fontWeight: '800' }}>Saku Studio</Text>
-              {!isMobile && <Text style={{ color: '#6366F1', fontSize: 9, fontWeight: '900', letterSpacing: 2, marginTop: 2 }}>PUBLICIDAD</Text>}
+              {!isMobile && <Text style={{ color: '#63348C', fontSize: 9, fontWeight: '900', letterSpacing: 2, marginTop: 2 }}>PUBLICIDAD</Text>}
             </View>
           </View>
 
@@ -175,11 +175,11 @@ function EditPortadaModal({
                 paddingHorizontal: isMobile ? 14 : 22, 
                 paddingVertical: 10, 
                 borderRadius: 10, 
-                backgroundColor: '#10B981', 
+                backgroundColor: '#63348C', 
                 flexDirection: 'row', 
                 alignItems: 'center', 
                 gap: 8,
-                shadowColor: '#10B981', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8
+                shadowColor: '#63348C', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8
               }}
             >
               {loading ? (
@@ -240,7 +240,7 @@ function EditPortadaModal({
                 
                 <View style={{ flex: 1, padding: isMobile ? '5%' : '7%', justifyContent: 'center' }}>
                   <View style={{ 
-                    backgroundColor: '#22C55E', 
+                    backgroundColor: '#63348C', 
                     alignSelf: 'flex-start', 
                     paddingHorizontal: isMobile ? 8 : 14, 
                     paddingVertical: isMobile ? 3 : 6, 
@@ -277,7 +277,7 @@ function EditPortadaModal({
               {!isMobile && (
                 <View style={{ marginTop: 40, flexDirection: 'row', gap: 32 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#10B981' }} />
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#63348C' }} />
                     <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '700' }}>VISTA EN VIVO</Text>
                   </View>
                   <Text style={{ color: '#CBD5E1', fontSize: 12 }}>|</Text>
@@ -306,7 +306,7 @@ function EditPortadaModal({
                 {/* SECCIÓN IMAGEN */}
                 <View style={{ marginBottom: 30 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                    <Ionicons name="image-outline" size={16} color="#6366F1" />
+                    <Ionicons name="image-outline" size={16} color="#63348C" />
                     <Text style={{ color: '#475569', fontSize: 11, fontWeight: '800', letterSpacing: 0.5 }}>FOTOGRAFÍA</Text>
                   </View>
                   <TouchableOpacity 
@@ -329,8 +329,8 @@ function EditPortadaModal({
                       <Image source={{ uri: item.imageUrl }} style={StyleSheet.absoluteFillObject} />
                     ) : null}
                     <View style={{ backgroundColor: 'rgba(255,255,255,0.95)', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5 }}>
-                      <Ionicons name="camera-outline" size={20} color="#6366F1" />
-                      <Text style={{ color: '#6366F1', fontSize: 10, fontWeight: '800', marginTop: 4 }}>CAMBIAR IMAGEN</Text>
+                      <Ionicons name="camera-outline" size={20} color="#63348C" />
+                      <Text style={{ color: '#63348C', fontSize: 10, fontWeight: '800', marginTop: 4 }}>CAMBIAR IMAGEN</Text>
                     </View>
                   </TouchableOpacity>
                 </View>
@@ -338,7 +338,7 @@ function EditPortadaModal({
                 {/* SECCIÓN COLORES */}
                 <View style={{ marginBottom: 30 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                    <Ionicons name="color-fill-outline" size={16} color="#6366F1" />
+                    <Ionicons name="color-fill-outline" size={16} color="#63348C" />
                     <Text style={{ color: '#475569', fontSize: 11, fontWeight: '800', letterSpacing: 0.5 }}>COLOR DE MARCA</Text>
                   </View>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
@@ -349,7 +349,7 @@ function EditPortadaModal({
                         style={{ 
                           width: isMobile ? 44 : 48, height: isMobile ? 44 : 48, borderRadius: 14, backgroundColor: c.hex,
                           borderWidth: item.backgroundColor === c.hex ? 4 : 1,
-                          borderColor: item.backgroundColor === c.hex ? '#6366F1' : '#E2E8F0',
+                          borderColor: item.backgroundColor === c.hex ? '#63348C' : '#E2E8F0',
                           alignItems: 'center', justifyContent: 'center'
                         }}
                       >
@@ -362,7 +362,7 @@ function EditPortadaModal({
                 {/* SECCIÓN TEXTOS */}
                 <View style={{ gap: 20 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <Ionicons name="text-outline" size={16} color="#6366F1" />
+                    <Ionicons name="text-outline" size={16} color="#63348C" />
                     <Text style={{ color: '#475569', fontSize: 11, fontWeight: '800', letterSpacing: 0.5 }}>TEXTOS</Text>
                   </View>
                   
@@ -411,7 +411,7 @@ function EditPortadaModal({
                 {/* SECCIÓN ETIQUETAS */}
                 <View style={{ gap: 20, marginTop: 24 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <Ionicons name="pricetags-outline" size={16} color="#6366F1" />
+                    <Ionicons name="pricetags-outline" size={16} color="#63348C" />
                     <Text style={{ color: '#475569', fontSize: 11, fontWeight: '800', letterSpacing: 0.5 }}>ETIQUETAS Y FILTROS</Text>
                   </View>
                   
@@ -434,8 +434,8 @@ function EditPortadaModal({
                             }}
                             style={{
                               paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12,
-                              backgroundColor: isSelected ? '#6366F1' : '#F8FAFC',
-                              borderWidth: 1, borderColor: isSelected ? '#6366F1' : '#E2E8F0',
+                              backgroundColor: isSelected ? '#63348C' : '#F8FAFC',
+                              borderWidth: 1, borderColor: isSelected ? '#63348C' : '#E2E8F0',
                             }}
                           >
                             <Text style={{ color: isSelected ? '#fff' : '#64748B', fontSize: 12, fontWeight: isSelected ? '800' : '600' }}>{cat}</Text>
@@ -464,8 +464,8 @@ function EditPortadaModal({
                             }}
                             style={{
                               paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12,
-                              backgroundColor: isSelected ? '#10B981' : '#F8FAFC',
-                              borderWidth: 1, borderColor: isSelected ? '#10B981' : '#E2E8F0',
+                              backgroundColor: isSelected ? '#63348C' : '#F8FAFC',
+                              borderWidth: 1, borderColor: isSelected ? '#63348C' : '#E2E8F0',
                             }}
                           >
                             <Text style={{ color: isSelected ? '#fff' : '#64748B', fontSize: 12, fontWeight: isSelected ? '800' : '600' }}>{brand}</Text>
@@ -766,7 +766,7 @@ export default function PublicidadScreen() {
   if (loading) {
     return (
       <View style={styles.loadingBox}>
-        <ActivityIndicator size="large" color="#6366F1" />
+        <ActivityIndicator size="large" color="#63348C" />
         <Text style={styles.loadingText}>Cargando banners...</Text>
       </View>
     );
@@ -841,7 +841,7 @@ export default function PublicidadScreen() {
           <View style={styles.headerRight}>
             {uploading && (
               <View style={styles.uploadingBadge}>
-                <ActivityIndicator size="small" color="#10B981" />
+                <ActivityIndicator size="small" color="#63348C" />
                 <Text style={styles.uploadingText}>Subiendo...</Text>
               </View>
             )}
@@ -881,7 +881,7 @@ export default function PublicidadScreen() {
                 <View style={styles.sectionHeader}>
                   <View style={styles.sectionTitleRow}>
                     <View style={styles.iconBox}>
-                      <Ionicons name={section.icon as any} size={18} color="#6366F1" />
+                      <Ionicons name={section.icon as any} size={18} color="#63348C" />
                     </View>
                     <View>
                       <Text style={styles.sectionLabel}>{section.label}</Text>
@@ -935,7 +935,7 @@ export default function PublicidadScreen() {
           <View style={[styles.portadasContainer, { padding: isDesktop ? 32 : 16 }]}>
             <View style={[styles.portadasHeader, { marginBottom: isDesktop ? 40 : 24 }]}>
               <View style={[styles.iconBox, { backgroundColor: '#EEF2FF' }]}>
-                <Ionicons name="grid" size={20} color="#6366F1" />
+                <Ionicons name="grid" size={20} color="#63348C" />
               </View>
               <View>
                 <Text style={styles.sectionLabel}>Gestión de Portadas Desktop</Text>
@@ -962,7 +962,7 @@ export default function PublicidadScreen() {
                           </View>
                           <View style={styles.portadaActions}>
                             <TouchableOpacity 
-                              style={[styles.portadaActionBtn, { backgroundColor: '#6366F1' }]} 
+                              style={[styles.portadaActionBtn, { backgroundColor: '#63348C' }]} 
                               onPress={() => openEditModal(item)}
                             >
                               <Ionicons name="create-outline" size={14} color="#fff" />
@@ -1047,8 +1047,8 @@ const styles = StyleSheet.create({
   viewToggleHeader: {
     flexDirection: 'row',
     backgroundColor: '#F1F5F9',
-    padding: 4,
-    borderRadius: 14,
+    padding: 3,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     alignSelf: 'flex-end',
@@ -1062,24 +1062,29 @@ const styles = StyleSheet.create({
   },
   headerRight: { flex: 1, alignItems: 'flex-end' },
   backBtn: { width: 44, height: 44, borderRadius: 14, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' },
+  viewToggle: { flexDirection: 'row', backgroundColor: '#F1F5F9', borderRadius: 12, padding: 4, alignSelf: 'center', marginTop: 12, marginBottom: 20 },
+  toggleBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10 },
+  toggleBtnActive: { backgroundColor: '#10B981', shadowColor: '#10B981', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8 },
+  toggleText: { fontSize: 13, fontWeight: '700', color: '#64748B' },
+  toggleTextActive: { color: '#fff' },
   title: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: '900',
     color: '#0F172A',
-    letterSpacing: -1.2,
+    letterSpacing: -0.8,
     textAlign: 'left',
   },
   titleMobile: { fontSize: 18, letterSpacing: -0.5 },
   subtitle: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#64748B',
-    marginTop: 4,
+    marginTop: 2,
     textAlign: 'left',
   },
   loadingBox: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#ffffff' },
   loadingText: { marginTop: 12, color: '#94A3B8', fontWeight: '600' },
   uploadingBadge: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#ECFDF5', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
-  uploadingText: { color: '#10B981', fontWeight: '700', fontSize: 11 },
+  uploadingText: { color: '#63348C', fontWeight: '700', fontSize: 11 },
   
   mainLayout: { gap: 32 },
   mainLayoutDesktop: { flexDirection: 'row', alignItems: 'flex-start' },
@@ -1088,12 +1093,12 @@ const styles = StyleSheet.create({
   sectionDesktop: { flex: 1, minHeight: 600 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, gap: 12 },
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  iconBox: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' },
-  sectionLabel: { fontSize: 16, fontWeight: '800', color: '#0F172A' },
-  dimsLabel: { fontSize: 11, color: '#94A3B8', fontWeight: '600' },
+  iconBox: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#F8FAFC', alignItems: 'center', justifyContent: 'center' },
+  sectionLabel: { fontSize: 14, fontWeight: '800', color: '#0F172A' },
+  dimsLabel: { fontSize: 10, color: '#94A3B8', fontWeight: '600' },
   
-  addBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#10B981', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, shadowColor: '#10B981', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8 },
-  addBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  addBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#10B981', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
+  addBtnText: { color: '#fff', fontWeight: '800', fontSize: 12 },
   
   bannerGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   bannerCard: { borderRadius: 16, overflow: 'hidden', backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#F1F5F9' },
@@ -1102,15 +1107,9 @@ const styles = StyleSheet.create({
   imgContainer: { width: '100%', height: '100%' },
   bannerImg: { width: '100%', height: '100%' },
   cardOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.02)', padding: 10, alignItems: 'flex-end' },
-  deleteBtn: { width: 32, height: 32, borderRadius: 10, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
+  deleteBtn: { width: 28, height: 28, borderRadius: 8, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
   
   emptyCardText: { color: '#94A3B8', fontSize: 12, fontWeight: '600' },
-
-  viewToggle: { flexDirection: 'row', alignSelf: 'center', backgroundColor: '#F1F5F9', padding: 4, borderRadius: 16, marginBottom: 32, gap: 4 },
-  toggleBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12 },
-  toggleBtnActive: { backgroundColor: '#3B1E54', shadowColor: '#3B1E54', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8 },
-  toggleText: { fontSize: 14, fontWeight: '800', color: '#64748B' },
-  toggleTextActive: { color: '#fff' },
 
   portadasContainer: { flex: 1, backgroundColor: '#fff', borderRadius: 28, borderWidth: 1, borderColor: '#F1F5F9', shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.02, shadowRadius: 24 },
   portadasHeader: { flexDirection: 'row', alignItems: 'center', gap: 14 },
@@ -1129,10 +1128,10 @@ const styles = StyleSheet.create({
   },
   portadaImgBox: { width: '100%', aspectRatio: 1200 / 525, backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
   portadaInfo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#F1F5F9' },
-  portadaLabel: { fontSize: 14, fontWeight: '800', color: '#0F172A' },
+  portadaLabel: { fontSize: 12, fontWeight: '800', color: '#0F172A' },
   portadaAddBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10 },
   portadaAddBtnStyle: { backgroundColor: '#10B981' },
-  portadaChangeBtn: { backgroundColor: '#6366F1' },
+  portadaChangeBtn: { backgroundColor: '#10B981' },
   portadaAddText: { color: '#fff', fontWeight: '800', fontSize: 12 },
   
   fullSize: { width: '100%', height: '100%' },
@@ -1140,7 +1139,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 10,
     left: 10,
-    backgroundColor: '#22C55E',
+    backgroundColor: '#63348C',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
@@ -1240,7 +1239,7 @@ const styles = StyleSheet.create({
     elevation: 10,
     gap: 12,
   },
-  toastSuccess: { backgroundColor: '#10B981' },
+  toastSuccess: { backgroundColor: '#63348C' },
   toastError: { backgroundColor: '#EF4444' },
   toastText: { flex: 1, color: '#fff', fontSize: 14, fontWeight: '700' },
   toastBtn: { backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
@@ -1314,7 +1313,7 @@ function MasivoView({
               onPress={onSend}
               disabled={sending}
               style={{ 
-                backgroundColor: '#10B981', 
+                backgroundColor: '#63348C', 
                 paddingVertical: 18, 
                 borderRadius: 14, 
                 alignItems: 'center', 
@@ -1323,7 +1322,7 @@ function MasivoView({
                 gap: 12,
                 marginTop: 10,
                 opacity: sending ? 0.7 : 1,
-                shadowColor: '#10B981', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8
+                shadowColor: '#63348C', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8
               }}
             >
               {sending ? (
@@ -1343,7 +1342,7 @@ function MasivoView({
           <View style={{ backgroundColor: '#F8FAFC', borderRadius: 24, padding: 24, borderWidth: 1, borderColor: '#E2E8F0' }}>
             <Text style={{ fontSize: 14, fontWeight: '800', color: '#475569', marginBottom: 16 }}>AUDIENCIA ACTUAL</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-              <Text style={{ fontSize: 48, fontWeight: '900', color: '#3B1E54' }}>{subscribers.length}</Text>
+              <Text style={{ fontSize: 48, fontWeight: '900', color: '#63348C' }}>{subscribers.length}</Text>
               <View>
                 <Text style={{ fontSize: 16, fontWeight: '800', color: '#0F172A' }}>Suscriptores</Text>
                 <Text style={{ fontSize: 12, color: '#64748B' }}>Correos listos para envío</Text>
@@ -1356,7 +1355,7 @@ function MasivoView({
             <ScrollView style={{ maxHeight: isDesktop ? 400 : 250 }}>
               {subscribers.map((sub: any, idx: number) => (
                 <View key={sub.id || idx} style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F1F5F9', flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#10B981' }} />
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#63348C' }} />
                   <Text style={{ color: '#0F172A', fontSize: 14, fontWeight: '500' }}>{sub.email}</Text>
                 </View>
               ))}

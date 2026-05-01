@@ -169,21 +169,21 @@ export default function ShopScheduleModal({ visible, onClose }: { visible: boole
                 style={[styles.tab, activeTab === 'weekly' && styles.tabActive]} 
                 onPress={() => setActiveTab('weekly')}
               >
-                <Ionicons name="calendar-outline" size={18} color={activeTab === 'weekly' ? '#6366F1' : '#94A3B8'} />
+                <Ionicons name="calendar-outline" size={18} color={activeTab === 'weekly' ? '#63348C' : '#94A3B8'} />
                 <Text style={[styles.tabText, activeTab === 'weekly' && styles.tabTextActive]}>Horarios Semanales</Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[styles.tab, activeTab === 'holidays' && styles.tabActive]} 
                 onPress={() => setActiveTab('holidays')}
               >
-                <Ionicons name="airplane-outline" size={18} color={activeTab === 'holidays' ? '#6366F1' : '#94A3B8'} />
+                <Ionicons name="airplane-outline" size={18} color={activeTab === 'holidays' ? '#63348C' : '#94A3B8'} />
                 <Text style={[styles.tabText, activeTab === 'holidays' && styles.tabTextActive]}>Feriados y Descansos</Text>
               </TouchableOpacity>
             </View>
 
             <ScrollView style={styles.body} showsVerticalScrollIndicator={true}>
               {loading ? (
-                <ActivityIndicator size="large" color="#6366F1" style={{ marginTop: 40 }} />
+                <ActivityIndicator size="large" color="#63348C" style={{ marginTop: 40 }} />
               ) : activeTab === 'weekly' ? (
                 <View style={styles.weeklyContent}>
                   <View style={styles.bulkActions}>
@@ -199,7 +199,7 @@ export default function ShopScheduleModal({ visible, onClose }: { visible: boole
                         Alert.alert("Éxito", "Horario del Lunes copiado a Martes-Viernes");
                       }}
                     >
-                      <Ionicons name="copy-outline" size={14} color="#6366F1" />
+                      <Ionicons name="copy-outline" size={14} color="#63348C" />
                       <Text style={styles.bulkBtnText}>Copiar Lunes a Viernes</Text>
                     </TouchableOpacity>
                   </View>
@@ -219,7 +219,7 @@ export default function ShopScheduleModal({ visible, onClose }: { visible: boole
                             onValueChange={() => toggleDay(day.id)}
                             scaleX={0.8} scaleY={0.8}
                             trackColor={{ false: '#E2E8F0', true: '#C7D2FE' }}
-                            thumbColor={config[day.id].isOpen ? '#6366F1' : '#94A3B8'}
+                            thumbColor={config[day.id].isOpen ? '#63348C' : '#94A3B8'}
                           />
                         </View>
 
@@ -375,13 +375,13 @@ const styles = StyleSheet.create({
   tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 10, gap: 8 },
   tabActive: { backgroundColor: '#fff', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
   tabText: { fontSize: 13, fontWeight: '700', color: '#94A3B8' },
-  tabTextActive: { color: '#6366F1' },
+  tabTextActive: { color: '#63348C' },
 
   body: { paddingHorizontal: 24, paddingTop: 20 },
   weeklyContent: { paddingBottom: 20 },
   bulkActions: { marginBottom: 16, alignItems: 'flex-end' },
   bulkBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: 12, backgroundColor: '#EEF2FF', borderRadius: 8 },
-  bulkBtnText: { fontSize: 11, fontWeight: '700', color: '#6366F1' },
+  bulkBtnText: { fontSize: 11, fontWeight: '700', color: '#63348C' },
 
   daysGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   compactDayCard: { width: '48.5%', backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#F1F5F9', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.02, shadowRadius: 4 },
@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
   holidayForm: { flexDirection: 'row', gap: 10, alignItems: 'flex-end', marginBottom: 24 },
   inputLabel: { fontSize: 10, fontWeight: '800', color: '#94A3B8', textTransform: 'uppercase', marginBottom: 8, marginLeft: 4 },
   input: { backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: '#1E293B', fontWeight: '600' },
-  addHolidayBtn: { backgroundColor: '#6366F1', width: 50, height: 50, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  addHolidayBtn: { backgroundColor: '#63348C', width: 50, height: 50, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   
   holidayList: { gap: 8 },
   holidayItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#F1F5F9' },
@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
   footer: { padding: 24, borderTopWidth: 1, borderTopColor: '#F1F5F9', flexDirection: 'row', justifyContent: 'flex-end', gap: 12 },
   cancelBtn: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 12 },
   cancelBtnText: { color: '#64748B', fontWeight: '700' },
-  saveBtn: { backgroundColor: '#6366F1', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 12, minWidth: 160, alignItems: 'center' },
+  saveBtn: { backgroundColor: '#63348C', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 12, minWidth: 160, alignItems: 'center' },
   saveBtnDisabled: { opacity: 0.7 },
   saveBtnText: { color: '#fff', fontWeight: '800', fontSize: 15 },
 
@@ -427,10 +427,10 @@ const styles = StyleSheet.create({
   pickerItem: { paddingVertical: 8, paddingHorizontal: 15, borderRadius: 8, marginBottom: 4 },
   pickerItemActive: { backgroundColor: '#EEF2FF' },
   pickerItemText: { fontSize: 16, fontWeight: '600', color: '#64748B' },
-  pickerItemTextActive: { color: '#6366F1', fontWeight: '800' },
+  pickerItemTextActive: { color: '#63348C', fontWeight: '800' },
   pickerFooter: { flexDirection: 'row', justifyContent: 'flex-end', gap: 15, marginTop: 25 },
   pickerCancel: { padding: 10 },
   pickerCancelText: { color: '#64748B', fontWeight: '700' },
-  pickerConfirm: { backgroundColor: '#6366F1', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 10 },
+  pickerConfirm: { backgroundColor: '#63348C', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 10 },
   pickerConfirmText: { color: '#fff', fontWeight: '800' },
 });

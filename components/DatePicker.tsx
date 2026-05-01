@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   selectedDay: {
-    backgroundColor: '#3B1E54',
+    backgroundColor: '#63348C',
   },
   dayText: { fontSize: 14, fontWeight: '600', color: '#475569' },
   selectedDayText: { color: '#fff' },

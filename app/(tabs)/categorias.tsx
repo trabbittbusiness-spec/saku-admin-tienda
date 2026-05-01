@@ -328,7 +328,7 @@ export default function CategoriasScreen() {
               <Switch 
                 value={disponibilidad} 
                 onValueChange={setDisponibilidad}
-                trackColor={{ false: '#E2E8F0', true: '#10B981' }}
+                trackColor={{ false: '#E2E8F0', true: '#63348C' }}
               />
             </View>
 
@@ -450,53 +450,53 @@ export default function CategoriasScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#ffffff' },
   header: { 
-    padding: 24, 
+    padding: 20, 
     backgroundColor: '#fff', 
     borderBottomWidth: 1, 
     borderBottomColor: '#F1F5F9',
     zIndex: 10
   },
-  headerDesktop: { paddingHorizontal: 40, paddingTop: 32 },
-  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+  headerDesktop: { paddingHorizontal: 40, paddingTop: 24 },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   headerTopMobile: { flexDirection: 'column', gap: 20 },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   headerLeftMobile: { width: '100%', justifyContent: 'center' },
-  backBtn: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 21, backgroundColor: '#F1F5F9' },
+  backBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 18, backgroundColor: '#F1F5F9' },
   backBtnMobile: { position: 'absolute', left: 0 },
-  headerTitleText: { fontSize: 32, fontWeight: '900', color: '#0F172A', letterSpacing: -1 },
+  headerTitleText: { fontSize: 22, fontWeight: '900', color: '#0F172A', letterSpacing: -0.5 },
   headerTitleTextMobile: { fontSize: 24, textAlign: 'center' },
   addBtn: { 
     flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#10B981', 
-    paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12,
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10,
   },
-  addBtnText: { color: '#fff', fontSize: 13, fontWeight: '800' },
+  addBtnText: { color: '#fff', fontSize: 12, fontWeight: '800' },
   
-  headerControls: { gap: 16 },
+  headerControls: { gap: 12 },
   searchBox: { 
-    flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#F8FAFC',
-    paddingHorizontal: 14, paddingVertical: Platform.OS === 'web' ? 12 : 8, borderRadius: 12,
+    flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#F8FAFC',
+    paddingHorizontal: 12, paddingVertical: Platform.OS === 'web' ? 10 : 8, borderRadius: 10,
     borderWidth: 1, borderColor: '#F1F5F9'
   },
-  searchInput: { flex: 1, fontSize: 14, color: '#1E293B', outlineStyle: 'none' } as any,
+  searchInput: { flex: 1, fontSize: 13, color: '#1E293B', outlineStyle: 'none' } as any,
   
   filterTabs: { flexDirection: 'row' },
-  filterTabsContent: { gap: 8 },
-  filterTab: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F1F5F9' },
+  filterTabsContent: { gap: 6 },
+  filterTab: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: '#F1F5F9' },
   filterTabActive: { backgroundColor: '#334155' },
-  filterTabText: { fontSize: 13, fontWeight: '700', color: '#64748B' },
+  filterTabText: { fontSize: 11, fontWeight: '700', color: '#64748B' },
   filterTabTextActive: { color: '#fff' },
 
   listContent: { paddingHorizontal: 24, paddingBottom: 40 },
   row: { gap: 16, justifyContent: 'flex-start', marginBottom: 16 },
   
   categoryCard: { 
-    flex: 1, backgroundColor: '#fff', borderRadius: 20, padding: 20,
+    flex: 1, backgroundColor: '#fff', borderRadius: 16, padding: 16,
     borderWidth: 1, borderColor: '#F1F5F9',
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.02, shadowRadius: 10, elevation: 1
   },
   cardContent: { flex: 1 },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  categoryName: { fontSize: 16, fontWeight: '800', color: '#0F172A' },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  categoryName: { fontSize: 14, fontWeight: '800', color: '#0F172A' },
   countBadge: { 
     alignSelf: 'flex-start', backgroundColor: '#F8FAFC', 
     paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10,
@@ -504,7 +504,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#F1F5F9'
   },
   countText: { fontSize: 12, fontWeight: '700', color: '#64748B' },
-  label: { fontSize: 10, fontWeight: '800', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
+  label: { fontSize: 9, fontWeight: '800', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 2 },
   inactiveBadge: { backgroundColor: '#FEF2F2', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: '#FEE2E2' },
   inactiveBadgeText: { fontSize: 9, fontWeight: '900', color: '#EF4444' },
   editIconBtn: { padding: 8, backgroundColor: '#F8FAFC', borderRadius: 10, borderWidth: 1, borderColor: '#F1F5F9' },
@@ -556,9 +556,9 @@ const styles = StyleSheet.create({
   modalAnimalChipText: { fontSize: 13, fontWeight: '700', color: '#64748B' },
   modalAnimalChipTextActive: { color: '#fff' },
 
-  cardAnimals: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
-  animalTag: { backgroundColor: '#F1F5F9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-  animalTagText: { fontSize: 11, fontWeight: '700', color: '#64748B' },
+  cardAnimals: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 },
+  animalTag: { backgroundColor: '#F1F5F9', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  animalTagText: { fontSize: 10, fontWeight: '700', color: '#64748B' },
 
   tabContainer: {
     flexDirection: 'row',

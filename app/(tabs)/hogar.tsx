@@ -13,21 +13,23 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { db } from '../../lib/firebase';
-import { collection, onSnapshot, Timestamp } from 'firebase/firestore';
+import { db, auth } from '../../lib/firebase';
+import { collection, onSnapshot, Timestamp, doc } from 'firebase/firestore';
 
 export default function HogarScreen() {
   const { width: windowWidth } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && windowWidth >= 1024;
+  const [userData, setUserData] = useState<any>(null); // To store currently logged in user info
   const [viewType, setViewType] = useState('Mensual');
   const [containerWidth, setContainerWidth] = useState(0);
 
   // States for dynamic data
-  const [userData, setUserData] = useState({ total: 0, today: 0, percentage: '0%' });
+  const [userStats, setUserStats] = useState({ total: 0, today: 0, percentage: '0%' });
   const [productData, setProductData] = useState({ total: 0, today: 0, percentage: '0%' });
   const [orderData, setOrderData] = useState({ total: 0, today: 0, percentage: '0%' });
   
   const [allOrders, setAllOrders] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [loadingRevenue, setLoadingRevenue] = useState(true);
 
   const calculateGrowth = (today: number, total: number) => {
@@ -63,7 +65,7 @@ export default function HogarScreen() {
       const all = snapshot.docs.map(d => d.data());
       const active = all.filter(u => u.IsAdmin !== true);
       const todayCount = active.filter(u => isToday(u)).length;
-      setUserData({
+      setUserStats({
         total: active.length,
         today: todayCount,
         percentage: calculateGrowth(todayCount, active.length)
@@ -95,8 +97,19 @@ export default function HogarScreen() {
       setLoadingRevenue(false);
     });
 
+    const unsubAuth = onSnapshot(doc(db, 'users', auth.currentUser?.uid || 'none'), (snap) => {
+      if (snap.exists()) setUserData(snap.data());
+    });
+
+    // 4. Fetch Notifications for the bell badge
+    const { query, where } = require('firebase/firestore');
+    const qNotifs = query(collection(db, 'Notifications'), where('read', '==', false));
+    const unsubNotifs = onSnapshot(qNotifs, (snapshot) => {
+      setUnreadCount(snapshot.size);
+    });
+
     return () => {
-      unsubUsers(); unsubProducts(); unsubOrders();
+      unsubUsers(); unsubProducts(); unsubOrders(); unsubAuth(); unsubNotifs();
     };
   }, []);
 
@@ -123,7 +136,7 @@ export default function HogarScreen() {
     const startOfLastYear = new Date(currentYear - 1, 0, 1);
 
     const productSales: Record<string, { name: string, quantity: number, photo: string, color: string }> = {};
-    const COLORS = ['#6366F1', '#10B981', '#F59E0B', '#EC4899', '#8B5CF6'];
+    const COLORS = ['#63348C', '#63348C', '#F59E0B', '#EC4899', '#63348C'];
 
     allOrders.forEach((o: any) => {
       const isRevenueValid = o.estado === 'Entregado' || ['tarjeta', 'Tarjeta', 'card'].includes(o.metodoPago);
@@ -216,11 +229,11 @@ export default function HogarScreen() {
     return (
       <View style={[styles.chartContainer, { height: chartHeight + 40 }]}>
         <Svg width={containerWidth} height={chartHeight} style={styles.svgStyle}>
-          <Path d={pathData} fill="none" stroke="#6366F1" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+          <Path d={pathData} fill="none" stroke="#63348C" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
           {dataPoints.map((val, i) => {
             const x = i * stepX;
             const y = chartHeight - (val / maxVal) * (chartHeight - 40) - 20;
-            return <React.Fragment key={`${i}-dots`}><Circle cx={x} cy={y} r="8" fill="#6366F1" opacity="0.2" /><Circle cx={x} cy={y} r="6" fill="#6366F1" stroke="#fff" strokeWidth="3" /></React.Fragment>;
+            return <React.Fragment key={`${i}-dots`}><Circle cx={x} cy={y} r="8" fill="#63348C" opacity="0.2" /><Circle cx={x} cy={y} r="6" fill="#63348C" stroke="#fff" strokeWidth="3" /></React.Fragment>;
           })}
         </Svg>
         <View style={styles.xAxis}>{currentConfig.labels.map((label, i) => (<Text key={`${label}-${i}`} style={[styles.xLabel, { left: i * stepX, transform: [{ translateX: -15 }], width: 30 }]}>{label}</Text>))}</View>
@@ -232,26 +245,41 @@ export default function HogarScreen() {
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, isDesktop && styles.contentDesktop]}>
         <View style={styles.mainHeader}>
-          <View style={styles.titleSection}>
-            <Text style={styles.title}>Gestión de Dashboard</Text>
-            <Text style={styles.subtitle}>Métricas de negocio con comparativas inteligentes</Text>
+          <View style={styles.welcomeSection}>
+            <Text style={styles.welcomeTitle}>¡Hola, {userData?.display_name?.split(' ')[0] || 'Admin'}! 👋</Text>
+            <Text style={styles.welcomeSubtitle}>Aquí tienes el resumen del ecosistema Saku hoy.</Text>
           </View>
+          {!isDesktop && (
+            <TouchableOpacity 
+              style={styles.mobileBellBtn} 
+              activeOpacity={0.7} 
+              onPress={() => (window as any).openSakuNotifications?.()}
+            >
+              <Ionicons name="notifications-outline" size={28} color="#475569" />
+              {unreadCount > 0 && (
+                <View style={styles.mobileNotificationBadge}>
+                  <Text style={styles.mobileBadgeText}>{unreadCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
 
         <View style={[styles.kpiGrid, isDesktop && styles.kpiGridDesktop]}>
           {[
-            { label: 'Usuarios Activos', value: userData.total, today: userData.today, change: userData.percentage, color: '#6366F1', icon: 'people-outline' },
-            { label: 'Productos', value: productData.total, today: productData.today, change: productData.percentage, color: '#F59E0B', icon: 'cube-outline' },
-            { label: 'Órdenes', value: orderData.total, today: orderData.today, change: orderData.percentage, color: '#EC4899', icon: 'receipt-outline' },
+            { label: 'Usuarios Activos', value: userStats.total, today: userStats.today, change: userStats.percentage, color: '#63348C', icon: 'people' },
+            { label: 'Productos en Tienda', value: productData.total, today: productData.today, change: productData.percentage, color: '#F59E0B', icon: 'cube' },
+            { label: 'Ventas Entregadas', value: orderData.total, today: orderData.today, change: orderData.percentage, color: '#10B981', icon: 'receipt' },
+            { label: 'Ingresos (Mes)', value: analytics.monthly.current, today: 0, change: analytics.monthly.trend, color: '#63348C', icon: 'stats-chart', isCurrency: true },
           ].map((kpi) => (
             <View key={kpi.label} style={styles.kpiCard}>
               <View style={styles.kpiHeader}>
-                <View style={[styles.kpiIcon, { backgroundColor: `${kpi.color}15` }]}><Ionicons name={kpi.icon as any} size={18} color={kpi.color} /></View>
-                <View style={[styles.changeBadge, { backgroundColor: `${kpi.color}10` }]}><Text style={[styles.changeText, { color: kpi.color }]}>{kpi.change}</Text></View>
+                <View style={[styles.kpiIcon, { backgroundColor: `${kpi.color}15` }]}><Ionicons name={kpi.icon as any} size={20} color={kpi.color} /></View>
+                <View style={[styles.changeBadge, { backgroundColor: kpi.change.startsWith('-') ? '#FEE2E2' : '#DCFCE7' }]}><Text style={[styles.changeText, { color: kpi.change.startsWith('-') ? '#EF4444' : '#059669' }]}>{kpi.change}</Text></View>
               </View>
               <View style={styles.kpiValueRow}>
-                <Text style={styles.kpiValue}>{kpi.value.toLocaleString()}</Text>
-                <Text style={styles.kpiToday}>({kpi.today} hoy)</Text>
+                <Text style={styles.kpiValue}>{kpi.isCurrency ? `$${kpi.value.toLocaleString("de-DE")}` : kpi.value.toLocaleString("de-DE")}</Text>
+                {!kpi.isCurrency && <Text style={styles.kpiToday}>({kpi.today} hoy)</Text>}
               </View>
               <Text style={styles.kpiLabel}>{kpi.label}</Text>
             </View>
@@ -264,10 +292,10 @@ export default function HogarScreen() {
               <View style={[styles.chartHeaderContainer, !isDesktop && styles.chartHeaderContainerMobile]}>
                 <View style={styles.chartHeaderInfo}>
                   <Text style={styles.chartTypeTitle}>{currentConfig.title}</Text>
-                  <View style={styles.revenueRow}><Text style={styles.revenueCurrency}>CLP</Text><Text style={styles.revenueValue}>{currentConfig.stats.current.toLocaleString()}</Text></View>
+                  <View style={styles.revenueRow}><Text style={styles.revenueCurrency}>CLP</Text><Text style={styles.revenueValue}>{currentConfig.stats.current.toLocaleString("de-DE")}</Text></View>
                   <View style={styles.trendRow}>
-                    <Ionicons name={currentConfig.stats.trend.startsWith('+') ? "trending-up" : "trending-down"} size={14} color={currentConfig.stats.trend.startsWith('+') ? "#10B981" : "#EF4444"} />
-                    <Text style={[styles.trendText, { color: currentConfig.stats.trend.startsWith('+') ? "#10B981" : "#EF4444" }]}>{currentConfig.stats.trend} <Text style={styles.trendSub}>{currentConfig.stats.label}</Text></Text>
+                    <Ionicons name={currentConfig.stats.trend.startsWith('+') ? "trending-up" : "trending-down"} size={14} color={currentConfig.stats.trend.startsWith('+') ? "#63348C" : "#EF4444"} />
+                    <Text style={[styles.trendText, { color: currentConfig.stats.trend.startsWith('+') ? "#63348C" : "#EF4444" }]}>{currentConfig.stats.trend} <Text style={styles.trendSub}>{currentConfig.stats.label}</Text></Text>
                   </View>
                 </View>
                 <View style={[styles.tabsSection, !isDesktop && styles.tabsSectionMobile]}>
@@ -321,30 +349,58 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#ffffff' },
   content: { padding: 16, paddingBottom: 100 },
   contentDesktop: { padding: 32, width: '100%' },
-  mainHeader: { marginBottom: 32 },
-  titleSection: { flex: 1 },
-  title: { fontSize: 28, fontWeight: '900', color: '#0F172A', letterSpacing: -1.2 },
-  subtitle: { fontSize: 15, color: '#64748B', marginTop: 4, fontWeight: '500' },
+  mainHeader: { marginBottom: 28, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  welcomeSection: { flex: 1 },
+  welcomeTitle: { fontSize: 26, fontWeight: '900', color: '#0F172A', letterSpacing: -1.2 },
+  welcomeSubtitle: { fontSize: 14, color: '#64748B', marginTop: 4, fontWeight: '600' },
+  mobileBellBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative'
+  },
+  mobileNotificationBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: '#EF4444',
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+    paddingHorizontal: 4
+  },
+  mobileBadgeText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '900'
+  },
   chartHeaderContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, gap: 16 },
   chartHeaderContainerMobile: { flexDirection: 'column', alignItems: 'stretch', gap: 20 },
   tabsSection: { backgroundColor: '#F1F5F9', padding: 4, borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0' },
   tabsSectionMobile: { width: '100%', marginTop: 0 },
   periodTabs: { flexDirection: 'row', gap: 2 },
   tabItem: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12 },
-  tabItemActive: { backgroundColor: '#10B981' },
+  tabItemActive: { backgroundColor: '#63348C' },
   tabText: { fontSize: 12, fontWeight: '800', color: '#64748B' },
   tabTextActive: { color: '#fff' },
   kpiGrid: { gap: 12, marginBottom: 24 },
   kpiGridDesktop: { flexDirection: 'row' },
-  kpiCard: { flex: 1, backgroundColor: '#fff', borderRadius: 24, padding: 24, borderWidth: 1, borderColor: '#F1F5F9', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.03, shadowRadius: 30, elevation: 2 },
+  kpiCard: { flex: 1, backgroundColor: '#fff', borderRadius: 20, padding: 20, borderWidth: 1, borderColor: '#F1F5F9', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.03, shadowRadius: 30, elevation: 2 },
   kpiHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   kpiIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   changeBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
   changeText: { fontSize: 11, fontWeight: '800' },
   kpiValueRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
-  kpiValue: { fontSize: 26, fontWeight: '900', color: '#0F172A' },
-  kpiToday: { fontSize: 13, fontWeight: '700', color: '#94A3B8' },
-  kpiLabel: { fontSize: 14, color: '#64748B', fontWeight: '600', marginTop: 4 },
+  kpiValue: { fontSize: 22, fontWeight: '900', color: '#0F172A' },
+  kpiToday: { fontSize: 12, fontWeight: '700', color: '#94A3B8' },
+  kpiLabel: { fontSize: 13, color: '#64748B', fontWeight: '600', marginTop: 4 },
   mainBody: { gap: 24 },
   mainBodyDesktop: { flexDirection: 'row', alignItems: 'stretch' },
   leftColumn: { },

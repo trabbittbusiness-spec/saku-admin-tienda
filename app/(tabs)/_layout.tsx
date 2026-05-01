@@ -11,6 +11,11 @@ export default function TabsLayout() {
   const isDesktop = Platform.OS === 'web' && width >= 768;
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  
+  // Expose toggle globally for mobile screens that need to open it
+  if (typeof window !== 'undefined') {
+    (window as any).openSakuNotifications = () => setNotificationsOpen(true);
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: '#fff' }}>

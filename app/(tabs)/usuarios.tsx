@@ -55,7 +55,7 @@ function UserDetailModal({ user, onClose, isDesktop }: { user: UserData | null; 
   const totalSpent = orders.reduce((s, o) => s + (o.total || 0), 0);
 
   const statusColor: Record<string, string> = {
-    entregado: '#10B981', enviado: '#6366F1', pendiente: '#F59E0B', cancelado: '#EF4444',
+    entregado: '#63348C', enviado: '#63348C', pendiente: '#F59E0B', cancelado: '#EF4444',
   };
 
   const panel = (
@@ -92,7 +92,7 @@ function UserDetailModal({ user, onClose, isDesktop }: { user: UserData | null; 
           </View>
           <View style={md.statDivider} />
           <View style={md.statBox}>
-            <Text style={md.statNum}>${totalSpent.toLocaleString()}</Text>
+            <Text style={md.statNum}>${totalSpent.toLocaleString("de-DE")}</Text>
             <Text style={md.statLbl}>Total Gastado</Text>
           </View>
           <View style={md.statDivider} />
@@ -112,7 +112,7 @@ function UserDetailModal({ user, onClose, isDesktop }: { user: UserData | null; 
             ].map(({ icon, label, value }) => (
               <View key={label} style={md.infoRow}>
                 <View style={md.infoIcon}>
-                  <Ionicons name={icon as any} size={16} color="#6366F1" />
+                  <Ionicons name={icon as any} size={16} color="#63348C" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={md.infoLabel}>{label}</Text>
@@ -127,7 +127,7 @@ function UserDetailModal({ user, onClose, isDesktop }: { user: UserData | null; 
         <View style={md.section}>
           <Text style={md.sectionTitle}>HISTORIAL DE ÓRDENES</Text>
           {loadingOrders ? (
-            <ActivityIndicator size="small" color="#6366F1" style={{ marginVertical: 20 }} />
+            <ActivityIndicator size="small" color="#63348C" style={{ marginVertical: 20 }} />
           ) : orders.length === 0 ? (
             <View style={md.emptyOrders}>
               <Ionicons name="bag-outline" size={36} color="#CBD5E1" />
@@ -149,7 +149,7 @@ function UserDetailModal({ user, onClose, isDesktop }: { user: UserData | null; 
                     <Text style={md.orderSub}>{o.items} producto{o.items !== 1 ? 's' : ''}</Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={md.orderTotal}>${o.total.toLocaleString()}</Text>
+                    <Text style={md.orderTotal}>${o.total.toLocaleString("de-DE")}</Text>
                     <View style={[md.orderStatus, { backgroundColor: sc + '20' }]}>
                       <Text style={[md.orderStatusText, { color: sc }]}>{o.status}</Text>
                     </View>
@@ -272,7 +272,7 @@ export default function UsuariosScreen() {
             <Text style={styles.actionBtnText}>Detalles</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.actionBtn, styles.actionBtnOutline]}>
-            <Ionicons name="mail-outline" size={16} color="#6366F1" />
+            <Ionicons name="mail-outline" size={16} color="#63348C" />
           </TouchableOpacity>
         </View>
       </View>
@@ -309,7 +309,7 @@ export default function UsuariosScreen() {
             </View>
           )}
           <View style={[styles.searchBox, !isDesktop && styles.searchBoxMobile, focused && styles.searchBoxFocused]}>
-            <Ionicons name="search-outline" size={20} color={focused ? '#6366F1' : '#94A3B8'} />
+            <Ionicons name="search-outline" size={20} color={focused ? '#63348C' : '#94A3B8'} />
             <TextInput style={styles.searchInput} placeholder="Buscar..." value={search} onChangeText={setSearch} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} />
             {search.length > 0 && <TouchableOpacity onPress={() => setSearch('')}><Ionicons name="close-circle" size={20} color="#CBD5E1" /></TouchableOpacity>}
           </View>
@@ -361,8 +361,8 @@ const md = StyleSheet.create({
   avatarWrap: { alignSelf: 'center', marginTop: -44, marginBottom: 12, position: 'relative' },
   avatar: { width: 88, height: 88, borderRadius: 44, borderWidth: 4, borderColor: '#fff' },
   avatarFallback: { backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 32, fontWeight: '900', color: '#6366F1' },
-  onlineDot: { position: 'absolute', bottom: 4, right: 4, width: 16, height: 16, borderRadius: 8, backgroundColor: '#10B981', borderWidth: 2, borderColor: '#fff' },
+  avatarText: { fontSize: 32, fontWeight: '900', color: '#63348C' },
+  onlineDot: { position: 'absolute', bottom: 4, right: 4, width: 16, height: 16, borderRadius: 8, backgroundColor: '#63348C', borderWidth: 2, borderColor: '#fff' },
   body: { paddingHorizontal: 24, paddingBottom: 40 },
   name: { fontSize: 22, fontWeight: '900', color: '#0F172A', textAlign: 'center', marginBottom: 4 },
   uid: { fontSize: 11, color: '#94A3B8', textAlign: 'center', fontWeight: '600', marginBottom: 20 },
@@ -400,35 +400,35 @@ const styles = StyleSheet.create({
   contentDesktop: { width: '100%', padding: 40, paddingTop: 32 },
   titleWrapper: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   titleWrapperMobile: { width: '100%', justifyContent: 'center', alignItems: 'center', position: 'relative', minHeight: 44 },
-  inlineBackBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' },
+  inlineBackBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' },
   inlineBackBtnMobile: { position: 'absolute', left: 0, zIndex: 10 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 40, flexWrap: 'wrap', gap: 24 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 24 },
   headerMobile: { flexDirection: 'column', gap: 20, marginBottom: 24 },
-  title: { fontSize: 32, fontWeight: '900', color: '#0F172A', letterSpacing: -1 },
+  title: { fontSize: 22, fontWeight: '900', color: '#0F172A', letterSpacing: -0.5 },
   titleMobile: { fontSize: 20, textAlign: 'center', fontWeight: '800' },
-  subtitle: { fontSize: 14, color: '#64748B', marginTop: 2, fontWeight: '500' },
-  headerStats: { flexDirection: 'row', gap: 32, flex: 2, justifyContent: 'center' },
-  miniStat: { borderLeftWidth: 3, borderLeftColor: '#F59E0B', paddingLeft: 12, justifyContent: 'center' },
-  miniStatVal: { fontSize: 20, fontWeight: '900', color: '#0F172A' },
-  miniStatLabel: { fontSize: 11, color: '#64748B', fontWeight: '700', textTransform: 'uppercase', marginTop: 1 },
-  searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12, borderWidth: 1, borderColor: '#E2E8F0', gap: 12, width: Platform.OS === 'web' ? 320 : '100%' } as any,
+  subtitle: { fontSize: 12, color: '#64748B', marginTop: 2, fontWeight: '500' },
+  headerStats: { flexDirection: 'row', gap: 24, flex: 2, justifyContent: 'center' },
+  miniStat: { borderLeftWidth: 3, borderLeftColor: '#F59E0B', paddingLeft: 10, justifyContent: 'center' },
+  miniStatVal: { fontSize: 18, fontWeight: '900', color: '#0F172A' },
+  miniStatLabel: { fontSize: 10, color: '#64748B', fontWeight: '700', textTransform: 'uppercase', marginTop: 1 },
+  searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: '#E2E8F0', gap: 10, width: Platform.OS === 'web' ? 280 : '100%' } as any,
   searchBoxMobile: { width: '100%' },
-  searchBoxFocused: { borderColor: '#6366F1', backgroundColor: '#fff', shadowColor: '#6366F1', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10 },
-  searchInput: { flex: 1, fontSize: 15, color: '#0F172A', fontWeight: '500', outlineStyle: 'none' } as any,
+  searchBoxFocused: { borderColor: '#63348C', backgroundColor: '#fff', shadowColor: '#63348C', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10 },
+  searchInput: { flex: 1, fontSize: 14, color: '#0F172A', fontWeight: '500', outlineStyle: 'none' } as any,
   statsRowMobile: { gap: 12, marginBottom: 24 },
   statCardMobile: { backgroundColor: '#F8FAFC', padding: 16, borderRadius: 16, borderLeftWidth: 4, borderLeftColor: '#F59E0B', width: '100%' },
   statVal: { fontSize: 24, fontWeight: '900', color: '#0F172A' },
   statLabel: { fontSize: 12, color: '#64748B', fontWeight: '700', marginTop: 2 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 20 },
-  userCard: { backgroundColor: '#fff', borderRadius: 24, padding: 24, borderWidth: 1, borderColor: '#F1F5F9', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.02, shadowRadius: 15 },
-  cardMain: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 20 },
-  avatarContainer: { width: 44, height: 44, borderRadius: 22, overflow: 'hidden' },
+  userCard: { backgroundColor: '#fff', borderRadius: 20, padding: 20, borderWidth: 1, borderColor: '#F1F5F9', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.02, shadowRadius: 15 },
+  cardMain: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
+  avatarContainer: { width: 36, height: 36, borderRadius: 18, overflow: 'hidden' },
   avatar: { width: '100%', height: '100%' },
   avatarPlaceholder: { width: '100%', height: '100%', backgroundColor: '#E11D4810', alignItems: 'center', justifyContent: 'center' },
-  avatarLabel: { fontSize: 18, fontWeight: '900', color: '#E11D48' },
+  avatarLabel: { fontSize: 14, fontWeight: '900', color: '#E11D48' },
   userInfo: { flex: 1 },
-  userName: { fontSize: 15, fontWeight: '800', color: '#0F172A' },
-  userEmail: { fontSize: 12, color: '#64748B', marginTop: 1 },
+  userName: { fontSize: 14, fontWeight: '800', color: '#0F172A' },
+  userEmail: { fontSize: 11, color: '#64748B', marginTop: 1 },
   detailsRow: { flexDirection: 'row', gap: 16, marginBottom: 16, paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#F8FAFC' },
   detailItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   detailText: { fontSize: 12, color: '#475569', fontWeight: '600' },

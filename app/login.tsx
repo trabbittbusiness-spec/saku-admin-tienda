@@ -235,7 +235,7 @@ export default function LoginScreen() {
                 activeOpacity={0.9}
               >
                 <LinearGradient
-                  colors={['#8B5CF6', '#6366F1']}
+                  colors={['#63348C', '#63348C']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.loginBtn}
@@ -315,12 +315,12 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: '#3B1E54',
+    backgroundColor: '#63348C',
     padding: 25,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
-    shadowColor: '#8B5CF6',
+    shadowColor: '#63348C',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
     shadowRadius: 20,
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   forgotText: {
-    color: '#3B1E54',
+    color: '#63348C',
     fontSize: 13,
     fontWeight: '700',
     textDecorationLine: 'underline',

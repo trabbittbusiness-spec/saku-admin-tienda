@@ -21,9 +21,7 @@ import { collection, query, onSnapshot, addDoc, doc, updateDoc, deleteDoc, serve
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../lib/firebase';
 import * as ImagePicker from 'expo-image-picker';
-
-
-export default function ServiciosScreen() {
+import { Video, ResizeMode } from 'expo-av';export default function ServiciosScreen() {
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 860;
   
@@ -40,9 +38,16 @@ export default function ServiciosScreen() {
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [precio, setPrecio] = useState('');
+  const [duracion, setDuracion] = useState('');
   const [foto, setFoto] = useState<string | null>(null);
+  const [video, setVideo] = useState<string | null>(null);
   const [disponibilidad, setDisponibilidad] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [adminMuted, setAdminMuted] = useState(false);
+  
+  // Mascotas Config State
+  const [requiresPetDetails, setRequiresPetDetails] = useState(false);
+  const [weightRanges, setWeightRanges] = useState<any[]>([]);
   
   // Categories State
   const [categorias, setCategorias] = useState<any[]>([]);
@@ -88,9 +93,13 @@ export default function ServiciosScreen() {
     setNombre('');
     setDescripcion('');
     setPrecio('');
+    setDuracion('');
     setFoto(null);
+    setVideo(null);
     setCategoriaIds([]);
     setDisponibilidad(true);
+    setRequiresPetDetails(false);
+    setWeightRanges([]);
     setModalVisible(true);
   };
 
@@ -99,7 +108,9 @@ export default function ServiciosScreen() {
     setNombre(s.nombre || '');
     setDescripcion(s.descripcion || '');
     setPrecio(s.precio ? s.precio.toString() : '');
+    setDuracion(s.duracion || '');
     setFoto(s.foto1 || null);
+    setVideo(s.video1 || null);
     
     // Handle migration from single string to array
     if (Array.isArray(s.categoriaIds)) {
@@ -111,6 +122,8 @@ export default function ServiciosScreen() {
     }
     
     setDisponibilidad(s.disponibilidad !== false);
+    setRequiresPetDetails(s.requiresPetDetails || false);
+    setWeightRanges(s.weightRanges ? s.weightRanges.map((w: any) => ({ min: (w.min||'').toString(), max: (w.max||'').toString(), price: (w.price||'').toString() })) : []);
     setModalVisible(true);
   };
 
@@ -119,7 +132,7 @@ export default function ServiciosScreen() {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [4, 3],
-      quality: 1,
+      quality: 0.6,
     });
 
     if (!result.canceled) {
@@ -127,19 +140,32 @@ export default function ServiciosScreen() {
     }
   };
 
-  const uploadImage = async (uri: string) => {
+  const pickVideo = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+      allowsEditing: true,
+      quality: 0.6,
+      videoMaxDuration: 60,
+    });
+
+    if (!result.canceled) {
+      setVideo(result.assets[0].uri);
+    }
+  };
+
+  const uploadFile = async (uri: string, isVideo: boolean = false) => {
     try {
-      // Si la imagen ya es una URL de Firebase Storage, no volver a subirla
       if (uri.startsWith('http') && !uri.includes('localhost') && !uri.includes('blob:')) {
         return uri;
       }
-
       const response = await fetch(uri);
       const blob = await response.blob();
-      const filename = `servicios/${Date.now()}.jpg`;
+      const filename = `servicios/${Date.now()}.${isVideo ? 'mp4' : 'jpg'}`;
       const storageRef = ref(storage, filename);
       
-      await uploadBytes(storageRef, blob);
+      await uploadBytes(storageRef, blob, {
+        contentType: isVideo ? 'video/mp4' : 'image/jpeg'
+      });
       const downloadURL = await getDownloadURL(storageRef);
       return downloadURL;
     } catch (e) {
@@ -162,25 +188,33 @@ export default function ServiciosScreen() {
     setSaving(true);
     try {
       let finalFoto = '';
-      if (foto) {
-        finalFoto = await uploadImage(foto);
-      }
+      let finalVideo = '';
+      if (foto) finalFoto = await uploadFile(foto, false);
+      if (video) finalVideo = await uploadFile(video, true);
 
-      const serviceData = {
+      const servicioData = {
         nombre,
         descripcion,
         precio: parseFloat(precio) || 0,
+        duracion,
         foto1: finalFoto,
+        video1: finalVideo,
         categoriaIds,
         disponibilidad,
+        requiresPetDetails,
+        weightRanges: requiresPetDetails ? weightRanges.map(wr => ({
+          min: parseFloat(wr.min) || 0,
+          max: parseFloat(wr.max) || 0,
+          price: parseFloat(wr.price) || 0
+        })) : [],
         updatedAt: serverTimestamp(),
       };
 
       if (editingId) {
-        await updateDoc(doc(db, 'Servicios', editingId), serviceData);
+        await updateDoc(doc(db, 'Servicios', editingId), servicioData);
       } else {
         await addDoc(collection(db, 'Servicios'), {
-          ...serviceData,
+          ...servicioData,
           createdAt: serverTimestamp(),
         });
       }
@@ -269,7 +303,7 @@ export default function ServiciosScreen() {
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
-        <ActivityIndicator size="large" color="#6366F1" />
+        <ActivityIndicator size="large" color="#63348C" />
         <Text style={{ marginTop: 12, color: '#94A3B8', fontWeight: '600' }}>Cargando servicios...</Text>
       </View>
     );
@@ -278,13 +312,13 @@ export default function ServiciosScreen() {
   const renderContent = () => (
     <ScrollView style={styles.scroll} contentContainerStyle={isDesktop ? styles.contentDesktop : styles.contentMobile}>
       <View style={[styles.headerRow, isDesktop && { flexDirection: 'row', alignItems: 'center' }]}>
-        <View>
+        <View style={isDesktop ? { flex: 1 } : {}}>
           <Text style={styles.pageTitle}>Servicios</Text>
           <Text style={styles.pageSubtitle}>{servicios.length} servicios registrados</Text>
         </View>
         
-        <View style={[styles.headerActions, isDesktop ? { width: 'auto' } : { flexDirection: 'column', gap: 12 }]}>
-          <View style={[styles.headerSearch, isDesktop ? { width: 280 } : { width: '100%' }, isSearchFocused && styles.headerSearchFocused]}>
+        <View style={[styles.headerActions, isDesktop ? { width: 'auto', flexShrink: 0 } : { flexDirection: 'column', gap: 12 }]}>
+          <View style={[styles.headerSearch, isDesktop ? { width: 200 } : { width: '100%' }, isSearchFocused && styles.headerSearchFocused]}>
             <Ionicons name="search-outline" size={18} color="#94A3B8" />
             <TextInput
               style={styles.searchInput}
@@ -299,7 +333,7 @@ export default function ServiciosScreen() {
 
           <View style={[styles.actionButtonsRow, isDesktop && { width: 'auto' }]}>
             <TouchableOpacity 
-              style={[styles.addBtn, { backgroundColor: '#F1F5F9', flex: isDesktop ? 0 : 1 }]} 
+              style={[styles.addBtn, { backgroundColor: '#F1F5F9', flexShrink: 0 }]} 
               activeOpacity={0.8} 
               onPress={() => setCatModalVisible(true)}
             >
@@ -308,7 +342,7 @@ export default function ServiciosScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity 
-              style={[styles.addBtn, { backgroundColor: '#10B981', flex: isDesktop ? 0 : 1, shadowColor: '#10B981' }]} 
+              style={[styles.addBtn, { flexShrink: 0 }]} 
               activeOpacity={0.85} 
               onPress={openAdd}
             >
@@ -322,70 +356,111 @@ export default function ServiciosScreen() {
       <View style={styles.grid}>
         {filtered.map(s => {
           const isActive = s.disponibilidad !== false;
+          const priceDisplay = (() => {
+            if (s.requiresPetDetails && Array.isArray(s.weightRanges) && s.weightRanges.length > 0) {
+              const prices = s.weightRanges.map((r: any) => Number(r.price)).filter((p: number) => !isNaN(p) && p > 0);
+              if (prices.length > 0) {
+                const min = Math.min(...prices);
+                const max = Math.max(...prices);
+                return min === max ? `$${min.toLocaleString("de-DE")}` : `$${min.toLocaleString("de-DE")} — $${max.toLocaleString("de-DE")}`;
+              }
+            }
+            return `$${(s.precio || 0).toLocaleString("de-DE")}`;
+          })();
+
+          const hasPetMode = s.requiresPetDetails && Array.isArray(s.weightRanges) && s.weightRanges.length > 0;
+
           return (
             <View key={s.id} style={[styles.card, isDesktop && { width: '31%' }]}>
+              {/* IMAGE SECTION */}
               <View style={styles.imgBox}>
                 {s.foto1 ? (
                   <Image source={{ uri: s.foto1 }} style={styles.productImg} resizeMode="cover" />
                 ) : (
-                  <Ionicons name="briefcase-outline" size={40} color="#CBD5E1" />
+                  <View style={{ flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F1F5F9' }}>
+                    <Ionicons name="briefcase-outline" size={44} color="#CBD5E1" />
+                  </View>
                 )}
-                <View style={[styles.statusBadge, { backgroundColor: isActive ? '#DCFCE7' : '#FEE2E2' }]}>
-                  <Text style={[styles.statusBadgeText, { color: isActive ? '#10B981' : '#EF4444' }]}>
-                    {isActive ? 'Activo' : 'Inactivo'}
-                  </Text>
+                {/* Dark gradient overlay */}
+                <View style={styles.imgGradient} />
+
+                {/* Status pill */}
+                <View style={[styles.statusPill, { backgroundColor: isActive ? '#10B981' : '#EF4444' }]}>
+                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#fff', marginRight: 5 }} />
+                  <Text style={styles.statusPillText}>{isActive ? 'Activo' : 'Inactivo'}</Text>
+                </View>
+
+                {/* Price badge bottom-right */}
+                <View style={[styles.pricePill, hasPetMode && { backgroundColor: '#63348C' }]}>
+                  <Text style={styles.pricePillText} numberOfLines={1}>{priceDisplay}</Text>
                 </View>
               </View>
 
+              {/* BODY */}
               <View style={styles.cardBody}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.cardName} numberOfLines={1}>{s.nombre || 'Sin Nombre'}</Text>
-                    <View style={styles.cardCatContainer}>
-                      {Array.isArray(s.categoriaIds) && s.categoriaIds.length > 0 ? (
-                        s.categoriaIds.map((cid: string) => {
-                          const cat = categorias.find(c => c.id === cid);
-                          return cat ? (
-                            <View key={cid} style={styles.cardCatBadge}>
-                              <Text style={styles.cardCatText}>{cat.nombre}</Text>
-                            </View>
-                          ) : null;
-                        })
-                      ) : s.categoriaId ? (
-                        <View style={styles.cardCatBadge}>
-                          <Text style={styles.cardCatText}>
-                            {categorias.find(c => c.id === s.categoriaId)?.nombre || 'Categoría'}
-                          </Text>
-                        </View>
-                      ) : (
-                        <Text style={styles.cardCatTextPlaceholder}>Sin categoría</Text>
-                      )}
-                    </View>
-                  </View>
-                </View>
-                <Text style={styles.cardDesc} numberOfLines={2}>{s.descripcion || 'Sin descripción'}</Text>
-                <Text style={styles.cardPrice}>${(s.precio || 0).toLocaleString()}</Text>
+                {/* Name */}
+                <Text style={styles.cardName} numberOfLines={1}>{s.nombre || 'Sin Nombre'}</Text>
 
+                {/* Categories row */}
+                <View style={styles.cardCatContainer}>
+                  {Array.isArray(s.categoriaIds) && s.categoriaIds.length > 0 ? (
+                    s.categoriaIds.slice(0, 2).map((cid: string) => {
+                      const cat = categorias.find(c => c.id === cid);
+                      return cat ? (
+                        <View key={cid} style={styles.cardCatBadge}>
+                          <Text style={styles.cardCatText}>{cat.nombre}</Text>
+                        </View>
+                      ) : null;
+                    })
+                  ) : s.categoriaId ? (
+                    <View style={styles.cardCatBadge}>
+                      <Text style={styles.cardCatText}>
+                        {categorias.find(c => c.id === s.categoriaId)?.nombre || 'Categoría'}
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={[styles.cardCatBadge, { backgroundColor: '#F8FAFC' }]}>
+                      <Text style={[styles.cardCatText, { color: '#94A3B8' }]}>Sin categoría</Text>
+                    </View>
+                  )}
+                  {hasPetMode && (
+                    <View style={[styles.cardCatBadge, { backgroundColor: '#EDE9FE' }]}>
+                      <Ionicons name="paw-outline" size={10} color="#63348C" style={{ marginRight: 3 }} />
+                      <Text style={[styles.cardCatText, { color: '#63348C' }]}>Multi-mascota</Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Meta: tiempo y descripción */}
+                <View style={styles.cardMetaRow}>
+                  <Ionicons name="time-outline" size={13} color="#94A3B8" />
+                  <Text style={styles.cardMetaText}>{s.duracion || 'Sin tiempo definido'}</Text>
+                </View>
+
+                <Text style={styles.cardDesc} numberOfLines={2}>
+                  {s.descripcion || 'Sin descripción disponible.'}
+                </Text>
+
+                {/* FOOTER */}
                 <View style={styles.cardFooter}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Switch
-                      value={isActive}
-                      onValueChange={() => toggleStatus(s.id, isActive)}
-                      trackColor={{ false: '#E2E8F0', true: '#10B981' }}
-                      thumbColor="#fff"
-                      style={Platform.OS === 'web' ? { transform: [{ scale: 0.8 }] } as any : {}}
-                    />
-                    <Text style={{ fontSize: 12, color: '#64748B', fontWeight: '600' }}>
-                      {isActive ? 'Visible' : 'Oculto'}
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    onPress={() => toggleStatus(s.id, isActive)}
+                    style={[styles.statusToggle, isActive ? styles.statusToggleOn : styles.statusToggleOff]}
+                  >
+                    <View style={[styles.statusToggleThumb, isActive ? styles.statusToggleThumbOn : styles.statusToggleThumbOff]} />
+                    <Text style={[styles.statusToggleLabel, { color: isActive ? '#10B981' : '#94A3B8' }]}>
+                      {isActive ? 'Activo' : 'Oculto'}
                     </Text>
-                  </View>
-                  
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
-                    <TouchableOpacity style={styles.actionBtn} onPress={() => openEdit(s)}>
-                      <Ionicons name="pencil" size={16} color="#6366F1" />
+                  </TouchableOpacity>
+
+                  <View style={styles.cardActions}>
+                    <TouchableOpacity style={styles.editBtn} onPress={() => openEdit(s)}>
+                      <Ionicons name="create-outline" size={17} color="#63348C" />
+                      <Text style={styles.editBtnText}>Editar</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#FFF5F5' }]} onPress={() => handleDelete(s.id)}>
-                      <Ionicons name="trash" size={16} color="#EF4444" />
+                    <TouchableOpacity style={styles.delBtn} onPress={() => handleDelete(s.id)}>
+                      <Ionicons name="trash-outline" size={17} color="#EF4444" />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -435,22 +510,76 @@ export default function ServiciosScreen() {
             >
               <View style={[styles.modalLeft, isDesktop ? { borderRightWidth: 1, width: '40%' } : { width: '100%' }]}>
                 <Text style={styles.formSectionTitle}>Multimedia</Text>
+                
+                {/* FOTO DE PORTADA */}
+                <Text style={styles.inputLabel}>Foto de Portada <Text style={{color: '#EF4444'}}>*</Text></Text>
                 <TouchableOpacity style={styles.imagePicker} onPress={pickImage} activeOpacity={0.8}>
                   {foto ? (
                     <View style={styles.imagePreviewContainer}>
                       <Image source={{ uri: foto }} style={styles.imagePreview} />
+                      <TouchableOpacity 
+                        style={[styles.removeBadge, { left: 16 }]} 
+                        onPress={() => setFoto(null)}
+                      >
+                        <Ionicons name="trash-outline" size={16} color="#fff" />
+                      </TouchableOpacity>
                       <View style={styles.imageEditBadge}>
                         <Ionicons name="camera" size={14} color="#fff" />
-                        <Text style={{color: '#fff', fontSize: 10, fontWeight: '700', marginLeft: 4}}>Cambiar</Text>
+                        <Text style={{color: '#fff', fontSize: 10, fontWeight: '700', marginLeft: 4}}>Cambiar Foto</Text>
                       </View>
                     </View>
                   ) : (
                     <View style={styles.imagePlaceholder}>
                       <View style={styles.iconCircle}>
-                        <Ionicons name="cloud-upload-outline" size={32} color="#6366F1" />
+                        <Ionicons name="image-outline" size={32} color="#63348C" />
                       </View>
-                      <Text style={styles.uploadText}>Subir foto del servicio</Text>
-                      <Text style={styles.uploadSubText}>Formatos sugeridos: JPG o PNG</Text>
+                      <Text style={styles.uploadText}>Subir portada</Text>
+                      <Text style={styles.uploadSubText}>JPG o PNG optimizado</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+
+                {/* VIDEO PROMOCIONAL */}
+                <Text style={[styles.inputLabel, { marginTop: 20 }]}>Video Promocional (Opcional)</Text>
+                <TouchableOpacity style={[styles.imagePicker, { height: 160 }]} onPress={pickVideo} activeOpacity={0.8}>
+                  {video ? (
+                    <View style={styles.imagePreviewContainer}>
+                      <Video
+                        source={{ uri: video }}
+                        style={styles.imagePreview}
+                        resizeMode={ResizeMode.COVER}
+                        shouldPlay
+                        isLooping
+                        isMuted={adminMuted}
+                      />
+                      <TouchableOpacity 
+                        style={[styles.removeBadge, { left: 16 }]} 
+                        onPress={() => setVideo(null)}
+                      >
+                        <Ionicons name="trash-outline" size={16} color="#fff" />
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        onPress={() => setAdminMuted(!adminMuted)}
+                        style={styles.muteBadge}
+                      >
+                        <Ionicons 
+                          name={adminMuted ? "volume-mute" : "volume-medium"} 
+                          size={14} 
+                          color="#fff" 
+                        />
+                      </TouchableOpacity>
+                      <View style={styles.imageEditBadge}>
+                        <Ionicons name="videocam" size={14} color="#fff" />
+                        <Text style={{color: '#fff', fontSize: 10, fontWeight: '700', marginLeft: 4}}>Cambiar Video</Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={styles.imagePlaceholder}>
+                      <View style={[styles.iconCircle, { width: 48, height: 48 }]}>
+                        <Ionicons name="videocam-outline" size={24} color="#63348C" />
+                      </View>
+                      <Text style={[styles.uploadText, { fontSize: 14 }]}>Agregar Video</Text>
+                      <Text style={[styles.uploadSubText, { fontSize: 11 }]}>MP4 máx. 60 seg • 1280x720px</Text>
                     </View>
                   )}
                 </TouchableOpacity>
@@ -463,7 +592,7 @@ export default function ServiciosScreen() {
                   <Switch
                     value={disponibilidad}
                     onValueChange={setDisponibilidad}
-                    trackColor={{ false: '#E2E8F0', true: '#10B981' }}
+                    trackColor={{ false: '#E2E8F0', true: '#63348C' }}
                     thumbColor="#fff"
                   />
                 </View>
@@ -486,19 +615,130 @@ export default function ServiciosScreen() {
                     </View>
                   </View>
 
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Precio <Text style={{color: '#EF4444'}}>*</Text></Text>
-                    <View style={styles.inputWrapper}>
-                      <Ionicons name="cash-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
-                      <TextInput 
-                        style={styles.inputWithIcon} 
-                        value={precio} 
-                        onChangeText={setPrecio} 
-                        placeholder="0.00" 
-                        keyboardType="numeric"
-                        placeholderTextColor="#CBD5E1"
+                  <View style={{ flexDirection: 'row', gap: 16 }}>
+                    {/* PRECIO */}
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.inputLabel}>Precio <Text style={{color: '#EF4444'}}>*</Text></Text>
+                      <View style={styles.inputWrapper}>
+                        <Ionicons name="cash-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
+                        <TextInput
+                          style={styles.inputWithIcon}
+                          placeholder="0.00"
+                          value={precio}
+                          onChangeText={setPrecio}
+                          keyboardType="numeric"
+                          placeholderTextColor="#CBD5E1"
+                        />
+                      </View>
+                    </View>
+
+                    {/* DURACIÓN */}
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.inputLabel}>Duración <Text style={{color: '#EF4444'}}>*</Text></Text>
+                      <View style={styles.inputWrapper}>
+                        <Ionicons name="time-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
+                        <TextInput
+                          style={styles.inputWithIcon}
+                          placeholder="Ej: 45 min"
+                          value={duracion}
+                          onChangeText={setDuracion}
+                          placeholderTextColor="#CBD5E1"
+                        />
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* CONFIGURACIÓN DE MASCOTAS */}
+                  <View style={{ padding: 16, backgroundColor: '#F8FAFC', borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 20 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <View>
+                        <Text style={{ fontSize: 14, fontWeight: '800', color: '#0F172A' }}>Opciones para Mascotas</Text>
+                        <Text style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>Permitir múltiples mascotas y pesos</Text>
+                      </View>
+                      <Switch
+                        value={requiresPetDetails}
+                        onValueChange={setRequiresPetDetails}
+                        trackColor={{ false: '#CBD5E1', true: '#10B981' }}
+                        thumbColor="#fff"
                       />
                     </View>
+
+                    {requiresPetDetails && (
+                      <View style={{ marginTop: 16 }}>
+                        <Text style={{ fontSize: 13, fontWeight: '700', color: '#0F172A', marginBottom: 8 }}>Rangos de Peso y Precios</Text>
+                        <Text style={{ fontSize: 12, color: '#64748B', marginBottom: 12 }}>
+                          Si no defines rangos, se cobrará el precio base a cada mascota.
+                        </Text>
+                        
+                        {weightRanges.map((wr, idx) => (
+                          <View key={idx} style={{ marginBottom: 14, backgroundColor: '#F1F5F9', borderRadius: 10, padding: 12 }}>
+                            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 8, alignItems: 'center' }}>
+                              <View style={{ flex: 1 }}>
+                                <Text style={{ fontSize: 10, fontWeight: '700', color: '#64748B', marginBottom: 4, textTransform: 'uppercase' }}>Peso mín (kg)</Text>
+                                <TextInput
+                                  style={[styles.input, { height: 40, paddingVertical: 0, fontSize: 13, backgroundColor: '#fff' }]}
+                                  placeholder="Ej: 0"
+                                  keyboardType="numeric"
+                                  value={wr.min}
+                                  onChangeText={(val) => {
+                                    const newArr = [...weightRanges];
+                                    newArr[idx].min = val;
+                                    setWeightRanges(newArr);
+                                  }}
+                                />
+                              </View>
+                              <Text style={{ color: '#94A3B8', marginTop: 18 }}>—</Text>
+                              <View style={{ flex: 1 }}>
+                                <Text style={{ fontSize: 10, fontWeight: '700', color: '#64748B', marginBottom: 4, textTransform: 'uppercase' }}>Peso máx (kg)</Text>
+                                <TextInput
+                                  style={[styles.input, { height: 40, paddingVertical: 0, fontSize: 13, backgroundColor: '#fff' }]}
+                                  placeholder="Ej: 10"
+                                  keyboardType="numeric"
+                                  value={wr.max}
+                                  onChangeText={(val) => {
+                                    const newArr = [...weightRanges];
+                                    newArr[idx].max = val;
+                                    setWeightRanges(newArr);
+                                  }}
+                                />
+                              </View>
+                              <View style={{ flex: 1.2 }}>
+                                <Text style={{ fontSize: 10, fontWeight: '700', color: '#64748B', marginBottom: 4, textTransform: 'uppercase' }}>Precio ($CLP)</Text>
+                                <TextInput
+                                  style={[styles.input, { height: 40, paddingVertical: 0, fontSize: 13, backgroundColor: '#fff' }]}
+                                  placeholder="Ej: 25000"
+                                  keyboardType="numeric"
+                                  value={wr.price}
+                                  onChangeText={(val) => {
+                                    const newArr = [...weightRanges];
+                                    newArr[idx].price = val;
+                                    setWeightRanges(newArr);
+                                  }}
+                                />
+                              </View>
+                              <TouchableOpacity
+                                style={{ marginTop: 18, padding: 6 }}
+                                onPress={() => {
+                                  const newArr = [...weightRanges];
+                                  newArr.splice(idx, 1);
+                                  setWeightRanges(newArr);
+                                }}
+                              >
+                                <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        ))}
+                        
+                        <TouchableOpacity
+                          style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 6, marginTop: 4 }}
+                          onPress={() => setWeightRanges([...weightRanges, { min: '', max: '', price: '' }])}
+                        >
+                          <Ionicons name="add-circle-outline" size={16} color="#63348C" />
+                          <Text style={{ fontSize: 13, fontWeight: '700', color: '#63348C' }}>Agregar Rango</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
                   </View>
 
                   <View style={styles.inputGroup}>
@@ -555,7 +795,7 @@ export default function ServiciosScreen() {
                 <Text style={styles.cancelBtnText}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={[styles.saveBtn, { backgroundColor: '#10B981', shadowColor: '#10B981' }, saving && { opacity: 0.7 }]} 
+                style={[styles.saveBtn, saving && { opacity: 0.7 }]} 
                 onPress={handleSave} 
                 disabled={saving}
               >
@@ -588,7 +828,7 @@ export default function ServiciosScreen() {
             {/* Sticky Add Bar */}
             <View style={[styles.stickyAddBar, !isDesktop && { paddingHorizontal: 20 }]}>
               <View style={styles.addCatInputGroup}>
-                <Ionicons name="add-circle-outline" size={20} color="#6366F1" style={{ marginLeft: 12 }} />
+                <Ionicons name="add-circle-outline" size={20} color="#63348C" style={{ marginLeft: 12 }} />
                 <TextInput 
                   style={styles.addCatInput}
                   placeholder={isDesktop ? "Escribe el nombre de la nueva categoría..." : "Nueva categoría..."}
@@ -633,7 +873,7 @@ export default function ServiciosScreen() {
                     <View key={cat.id} style={styles.highDensityCard}>
                       <View style={styles.hdCardInfo}>
                         <View style={styles.hdIcon}>
-                          <Ionicons name={getCategoryIcon(cat.nombre)} size={14} color="#6366F1" />
+                          <Ionicons name={getCategoryIcon(cat.nombre)} size={14} color="#63348C" />
                         </View>
                         <Text style={styles.hdName} numberOfLines={1}>{cat.nombre}</Text>
                       </View>
@@ -677,33 +917,83 @@ const styles = StyleSheet.create({
   contentDesktop: { paddingHorizontal: 40, paddingTop: 32, paddingBottom: 60 },
   contentMobile: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 100 },
 
-  headerRow: { flexDirection: 'column', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, gap: 16 },
-  pageTitle: { fontSize: 28, fontWeight: '900', color: '#0F172A', letterSpacing: -1 },
-  pageSubtitle: { fontSize: 14, color: '#64748B', fontWeight: '500', marginTop: 4 },
+  headerRow: { flexDirection: 'column', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, gap: 12 },
+  pageTitle: { fontSize: 22, fontWeight: '900', color: '#0F172A', letterSpacing: -0.8 },
+  pageSubtitle: { fontSize: 12, color: '#64748B', fontWeight: '500', marginTop: 2 },
   
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 12, width: '100%' },
-  headerSearch: { flex: Platform.OS !== 'web' ? 1 : undefined, width: Platform.OS === 'web' ? 280 : 'auto', flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1, borderColor: '#E2E8F0', gap: 8 },
-  headerSearchFocused: { borderColor: '#6366F1', backgroundColor: '#fff' },
-  searchInput: { flex: 1, fontSize: 14, color: '#0F172A', outlineStyle: 'none' } as any,
+  headerSearch: { flex: Platform.OS !== 'web' ? 1 : undefined, width: Platform.OS === 'web' ? 200 : 'auto', flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: '#E2E8F0', gap: 6 },
+  headerSearchFocused: { borderColor: '#63348C', backgroundColor: '#fff' },
+  searchInput: { flex: 1, fontSize: 13, color: '#0F172A', outlineStyle: 'none' } as any,
   
-  addBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#10B981', paddingHorizontal: 22, paddingVertical: 12, borderRadius: 14, shadowColor: '#10B981', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, minWidth: Platform.OS === 'web' ? 200 : 0, flexShrink: 0 },
+  addBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#10B981', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12, shadowColor: '#10B981', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 8, flexShrink: 0, overflow: 'visible' },
   addBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
-  actionButtonsRow: { flexDirection: 'row', alignItems: 'center', gap: 10, width: '100%' },
+  actionButtonsRow: { flexDirection: 'row', alignItems: 'center', gap: 8, width: '100%' },
 
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 20 },
-  card: { width: '100%', backgroundColor: '#fff', borderRadius: 20, borderWidth: 1, borderColor: '#F1F5F9', overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.04, shadowRadius: 20, marginBottom: 4 },
-  imgBox: { height: 180, backgroundColor: '#F8FAFC', alignItems: 'center', justifyContent: 'center' },
+  card: {
+    width: '100%', backgroundColor: '#fff', borderRadius: 20,
+    borderWidth: 1, borderColor: '#F1F5F9', overflow: 'hidden',
+    shadowColor: '#63348C', shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06, shadowRadius: 24, marginBottom: 4,
+  },
+  imgBox: { height: 160, backgroundColor: '#F8FAFC', position: 'relative' },
   productImg: { width: '100%', height: '100%' },
-  statusBadge: { position: 'absolute', top: 12, right: 12, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
-  statusBadgeText: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase' },
-  
-  cardBody: { padding: 20 },
-  cardName: { fontSize: 18, fontWeight: '800', color: '#0F172A', marginBottom: 6 },
-  cardDesc: { fontSize: 14, color: '#64748B', marginBottom: 14, lineHeight: 20 },
-  cardPrice: { fontSize: 20, fontWeight: '900', color: '#10B981', marginBottom: 20 },
-  
-  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#F1F5F9', paddingTop: 16 },
-  actionBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#F5F7FF', alignItems: 'center', justifyContent: 'center' },
+  imgGradient: {
+    position: 'absolute', bottom: 0, left: 0, right: 0, height: 70,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  statusPill: {
+    position: 'absolute', top: 12, left: 12,
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20,
+  },
+  statusPillText: { fontSize: 10, fontWeight: '800', color: '#fff', textTransform: 'uppercase', letterSpacing: 0.4 },
+  pricePill: {
+    position: 'absolute', bottom: 12, right: 12,
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20,
+    maxWidth: 200,
+  },
+  pricePillText: { fontSize: 13, fontWeight: '900', color: '#fff' },
+
+  cardBody: { padding: 18 },
+  cardName: { fontSize: 17, fontWeight: '900', color: '#0F172A', marginBottom: 8, letterSpacing: -0.3 },
+  cardCatContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
+  cardCatBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F1F5F9', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  cardCatText: { fontSize: 10, fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: 0.3 },
+  cardCatTextPlaceholder: { fontSize: 12, color: '#CBD5E1', fontStyle: 'italic' },
+  cardMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 8 },
+  cardMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  cardMetaText: { fontSize: 12, color: '#94A3B8', fontWeight: '600' },
+  cardDesc: { fontSize: 13, color: '#64748B', marginBottom: 16, lineHeight: 19 },
+  cardPrice: { fontSize: 17, fontWeight: '900', color: '#0F172A', marginBottom: 16 },
+
+  cardFooter: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    borderTopWidth: 1, borderTopColor: '#F8FAFC', paddingTop: 14,
+  },
+  statusToggle: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20,
+    backgroundColor: '#F8FAFC',
+  },
+  statusToggleOn: { backgroundColor: '#F0FDF4' },
+  statusToggleOff: { backgroundColor: '#F8FAFC' },
+  statusToggleThumb: { width: 10, height: 10, borderRadius: 5 },
+  statusToggleThumbOn: { backgroundColor: '#10B981' },
+  statusToggleThumbOff: { backgroundColor: '#CBD5E1' },
+  statusToggleLabel: { fontSize: 12, fontWeight: '700' },
+  cardActions: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  editBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: '#F5F3FF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12,
+  },
+  editBtnText: { fontSize: 12, fontWeight: '700', color: '#63348C' },
+  delBtn: {
+    width: 34, height: 34, borderRadius: 12,
+    backgroundColor: '#FFF5F5', alignItems: 'center', justifyContent: 'center',
+  },
 
   emptyState: { width: '100%', alignItems: 'center', paddingVertical: 100 },
   emptyText: { fontSize: 16, color: '#94A3B8', fontWeight: '600', marginTop: 16 },
@@ -711,7 +1001,7 @@ const styles = StyleSheet.create({
   // Modal Styles - Wide Premium Design
   modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.4)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { backgroundColor: '#fff', borderRadius: 32, width: '94%', maxHeight: '90%', shadowColor: '#000', shadowOffset: { width: 0, height: 25 }, shadowOpacity: 0.2, shadowRadius: 50, elevation: 25, overflow: 'hidden' },
-  modalContentDesktop: { width: 850 },
+  modalContentDesktop: { width: 1050, maxWidth: '97%' },
   modalFullScreenMobile: { width: '100%', height: '100%', maxHeight: '100%', borderRadius: 0 },
   
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 32, borderBottomWidth: 1, borderBottomColor: '#F1F5F9', backgroundColor: '#fff' },
@@ -734,8 +1024,10 @@ const styles = StyleSheet.create({
   imagePreviewContainer: { flex: 1, position: 'relative' },
   imagePreview: { width: '100%', height: '100%', resizeMode: 'cover' },
   imageEditBadge: { position: 'absolute', bottom: 16, right: 16, backgroundColor: 'rgba(15, 23, 42, 0.8)', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20 },
+  muteBadge: { position: 'absolute', top: 16, right: 16, backgroundColor: 'rgba(15, 23, 42, 0.8)', width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  removeBadge: { position: 'absolute', top: 16, backgroundColor: 'rgba(239, 68, 68, 0.9)', width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 3 },
   
-  formSectionTitle: { fontSize: 12, fontWeight: '900', color: '#6366F1', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 20 },
+  formSectionTitle: { fontSize: 12, fontWeight: '900', color: '#63348C', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 20 },
   formGrid: { gap: 20, marginBottom: 24 },
   inputGroup: { width: '100%' },
   inputLabel: { fontSize: 14, fontWeight: '700', color: '#475569', marginBottom: 10, marginLeft: 2 },
@@ -763,16 +1055,16 @@ const styles = StyleSheet.create({
 
   catWrapGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
   catTag: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, backgroundColor: '#F1F5F9', borderWidth: 1, borderColor: '#E2E8F0' },
-  catTagSelected: { backgroundColor: '#6366F1', borderColor: '#6366F1' },
+  catTagSelected: { backgroundColor: 'transparent', borderColor: '#63348C', borderWidth: 2 },
   catTagText: { fontSize: 13, fontWeight: '700', color: '#64748B' },
-  catTagSelectedText: { color: '#fff' },
+  catTagSelectedText: { color: '#63348C' },
 
   // Cat Modal Redesign
   // High Density Manager Redesign
   stickyAddBar: { paddingHorizontal: 32, paddingVertical: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
   addCatInputGroup: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0', paddingRight: 8 },
   addCatInput: { flex: 1, paddingHorizontal: 12, paddingVertical: 14, fontSize: 15, color: '#0F172A', outlineStyle: 'none' } as any,
-  miniAddBtn: { backgroundColor: '#6366F1', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10 },
+  miniAddBtn: { backgroundColor: '#63348C', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10 },
   miniAddBtnText: { color: '#fff', fontWeight: '800', fontSize: 13 },
 
   catManagerBody: { padding: 32, flex: 1 },

@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { collection, query, onSnapshot, doc, setDoc, addDoc, deleteDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, setDoc, addDoc, deleteDoc, updateDoc, serverTimestamp, Timestamp, getDocs, where } from 'firebase/firestore';
 
 import { db } from '../../lib/firebase';
 import { DatePicker } from '../../components/DatePicker';
@@ -126,15 +126,39 @@ export default function CuponesScreen() {
           createdAt: serverTimestamp(),
         });
         // Global broadcast notification for all tienda users
-        const discountText = type === 'percentage' ? `${parsedValue}% de descuento` : `$${parsedValue.toLocaleString()} de descuento`;
+        const discountText = type === 'percentage' ? `${parsedValue}% de descuento` : `$${parsedValue.toLocaleString("de-DE")} de descuento`;
         await addDoc(collection(db, 'notificaciones'), {
           tipo: 'global',
           titulo: '🏟️ ¡Nuevo cupón disponible!',
-          mensaje: `Usa el código ${code.toUpperCase().trim()} y obtén ${discountText} en tu próxima compra${parsedMinAmount > 0 ? ` (mín. $${parsedMinAmount.toLocaleString()})` : ''}.`,
+          mensaje: `Usa el código ${code.toUpperCase().trim()} y obtén ${discountText} en tu próxima compra${parsedMinAmount > 0 ? ` (mín. $${parsedMinAmount.toLocaleString("de-DE")})` : ''}.`,
           codigo: code.toUpperCase().trim(),
           leidaPor: [],
           creadaEn: Timestamp.now(),
         });
+
+        // Mass Push Notification to non-admin users
+        try {
+          const usersSnap = await getDocs(query(collection(db, 'users'), where('IsAdmin', '==', false)));
+          if (!usersSnap.empty) {
+            const userRefsArr = usersSnap.docs.map(d => `users/${d.id}`);
+            const userRefsString = userRefsArr.join(',');
+
+            await addDoc(collection(db, 'ff_user_push_notifications'), {
+              initial_page_name: 'index',
+              notification_text: `¡Nuevo cupón! Usa ${code.toUpperCase().trim()} para obtener ${discountText}.`,
+              notification_title: '🎟️ ¡Nuevo Cupón de Descuento!',
+              num_sent: usersSnap.size,
+              parameter_data: JSON.stringify({ couponCode: code.toUpperCase().trim() }),
+              sender: doc(db, 'users', 'admin'),
+              status: 'pending',
+              app_target: 'tienda',
+              timestamp: serverTimestamp(),
+              user_refs: userRefsString
+            });
+          }
+        } catch (pushErr) {
+          console.error('Error sending coupon push:', pushErr);
+        }
         showToast('¡Cupón creado con éxito!', 'success');
 
       }
@@ -239,14 +263,14 @@ export default function CuponesScreen() {
             <View key={c.id} style={[styles.couponCard, { width: isDesktop ? '31%' : '100%' }]}>
               <View style={styles.cardHeader}>
                 <View style={[styles.statusBadge, { backgroundColor: c.active ? '#ECFDF5' : '#F1F5F9' }]}>
-                  <View style={[styles.statusDot, { backgroundColor: c.active ? '#10B981' : '#94A3B8' }]} />
+                  <View style={[styles.statusDot, { backgroundColor: c.active ? '#63348C' : '#94A3B8' }]} />
                   <Text style={[styles.statusText, { color: c.active ? '#065F46' : '#64748B' }]}>
                     {c.active ? 'Activo' : 'Inactivo'}
                   </Text>
                 </View>
                 <View style={styles.cardActions}>
                   <TouchableOpacity onPress={() => handleEdit(c)} style={styles.actionBtn}>
-                    <Ionicons name="pencil" size={16} color="#6366F1" />
+                    <Ionicons name="pencil" size={16} color="#63348C" />
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => handleDelete(c.id)} style={[styles.actionBtn, styles.deleteAction]}>
                     <Ionicons name="trash" size={16} color="#EF4444" />
@@ -256,13 +280,13 @@ export default function CuponesScreen() {
               
               <View style={styles.mainInfo}>
                 <Text style={styles.discountDisplay}>
-                  {c.type === 'percentage' ? `${c.value}%` : `$${c.value.toLocaleString()}`}
+                  {c.type === 'percentage' ? `${c.value}%` : `$${c.value.toLocaleString("de-DE")}`}
                   <Text style={styles.discountSub}> OFF</Text>
                 </Text>
                  <View style={styles.codeContainer}>
                   <Text style={styles.couponCodeText}>{c.code}</Text>
                   <TouchableOpacity style={styles.copyBtn} onPress={() => handleCopy(c.code)}>
-                    <Ionicons name="copy-outline" size={14} color="#6366F1" />
+                    <Ionicons name="copy-outline" size={14} color="#63348C" />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -270,7 +294,7 @@ export default function CuponesScreen() {
               <View style={styles.cardFooter}>
                 <View style={styles.footerItem}>
                   <Ionicons name="cart-outline" size={14} color="#94A3B8" />
-                  <Text style={styles.footerLabel}>Mín: <Text style={styles.footerValue}>${c.minAmount?.toLocaleString() || '0'}</Text></Text>
+                  <Text style={styles.footerLabel}>Mín: <Text style={styles.footerValue}>${c.minAmount?.toLocaleString("de-DE") || '0'}</Text></Text>
                 </View>
                 {c.expiryDate && (
                   <View style={styles.footerItem}>
@@ -288,7 +312,7 @@ export default function CuponesScreen() {
                 <Switch
                   value={c.active}
                   onValueChange={() => handleToggleActive(c.id, c.active)}
-                  trackColor={{ false: '#E2E8F0', true: '#10B981' }}
+                  trackColor={{ false: '#E2E8F0', true: '#63348C' }}
                   thumbColor={c.active ? '#FFFFFF' : '#94A3B8'}
                 />
               </View>
@@ -415,19 +439,19 @@ const styles = StyleSheet.create({
   contentDesktop: { width: '100%', padding: 40, paddingTop: 32 },
   titleWrapper: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   titleWrapperMobile: { width: '100%', justifyContent: 'center', alignItems: 'center', position: 'relative', minHeight: 44 },
-  inlineBackBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' },
+  inlineBackBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' },
   inlineBackBtnMobile: { position: 'absolute', left: 0, zIndex: 10 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 40, flexWrap: 'wrap', gap: 24 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 24 },
   headerMobile: { flexDirection: 'column', gap: 12, marginBottom: 24 },
-  title: { fontSize: 32, fontWeight: '900', color: '#0F172A', letterSpacing: -1 },
+  title: { fontSize: 22, fontWeight: '900', color: '#0F172A', letterSpacing: -0.5 },
   titleMobile: { fontSize: 20, textAlign: 'center', fontWeight: '800' },
-  subtitle: { fontSize: 14, color: '#64748B', marginTop: 2, fontWeight: '500' },
-  addBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#3B1E54', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 14, gap: 8, shadowColor: '#3B1E54', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.2, shadowRadius: 12, elevation: 4 },
-  addBtnText: { color: '#fff', fontWeight: '800', fontSize: 14 },
+  subtitle: { fontSize: 12, color: '#64748B', marginTop: 2, fontWeight: '500' },
+  addBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#10B981', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, gap: 6, shadowColor: '#10B981', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.2, shadowRadius: 12, elevation: 4 },
+  addBtnText: { color: '#fff', fontWeight: '800', fontSize: 13 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 24 },
   
-  couponCard: { backgroundColor: '#fff', borderRadius: 28, padding: 24, borderWidth: 1, borderColor: '#F1F5F9', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.04, shadowRadius: 30 },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+  couponCard: { backgroundColor: '#fff', borderRadius: 24, padding: 20, borderWidth: 1, borderColor: '#F1F5F9', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.04, shadowRadius: 30 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, gap: 6 },
   statusDot: { width: 6, height: 6, borderRadius: 3 },
   statusText: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase' },
@@ -435,11 +459,11 @@ const styles = StyleSheet.create({
   actionBtn: { width: 34, height: 34, borderRadius: 10, backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center' },
   deleteAction: { backgroundColor: '#FEF2F2' },
   
-  mainInfo: { alignItems: 'center', marginBottom: 24 },
-  discountDisplay: { fontSize: 36, fontWeight: '900', color: '#0F172A', letterSpacing: -1 },
-  discountSub: { fontSize: 16, color: '#64748B', fontWeight: '700' },
-  codeContainer: { marginTop: 12, backgroundColor: '#F8FAFC', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: '#E2E8F0', borderStyle: 'dashed' },
-  couponCodeText: { fontSize: 15, fontWeight: '800', color: '#6366F1', letterSpacing: 1 },
+  mainInfo: { alignItems: 'center', marginBottom: 20 },
+  discountDisplay: { fontSize: 28, fontWeight: '900', color: '#0F172A', letterSpacing: -0.5 },
+  discountSub: { fontSize: 14, color: '#64748B', fontWeight: '700' },
+  codeContainer: { marginTop: 10, backgroundColor: '#F8FAFC', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 10, flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: '#E2E8F0', borderStyle: 'dashed' },
+  couponCodeText: { fontSize: 14, fontWeight: '800', color: '#63348C', letterSpacing: 0.5 },
   copyBtn: { padding: 4 },
 
   cardFooter: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#F8FAFC', paddingTop: 20 },
@@ -449,31 +473,31 @@ const styles = StyleSheet.create({
 
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 120, width: '100%' },
   emptyText: { fontSize: 18, color: '#94A3B8', fontWeight: '600', marginTop: 16 },
-  emptyBtn: { marginTop: 24, backgroundColor: '#3B1E54', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12 },
+  emptyBtn: { marginTop: 24, backgroundColor: '#10B981', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12 },
   emptyBtnText: { color: '#fff', fontWeight: '700' },
   
   modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   modalContent: { backgroundColor: '#fff', borderRadius: 32, width: '100%', maxWidth: 500, shadowColor: '#000', shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.2, shadowRadius: 40 },
   modalContentDesktop: { maxWidth: 450 },
-  modalHeader: { padding: 28, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
-  modalTitle: { fontSize: 22, fontWeight: '900', color: '#0F172A' },
-  modalBody: { padding: 28 },
-  inputGroup: { marginBottom: 24 },
-  label: { fontSize: 14, fontWeight: '800', color: '#334155', marginBottom: 10 },
-  input: { backgroundColor: '#F8FAFC', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E2E8F0', fontSize: 15, color: '#0F172A', fontWeight: '700' } as any,
+  modalHeader: { padding: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  modalTitle: { fontSize: 18, fontWeight: '900', color: '#0F172A' },
+  modalBody: { padding: 20 },
+  inputGroup: { marginBottom: 20 },
+  label: { fontSize: 12, fontWeight: '800', color: '#334155', marginBottom: 8 },
+  input: { backgroundColor: '#F8FAFC', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#E2E8F0', fontSize: 14, color: '#0F172A', fontWeight: '700' } as any,
   row: { flexDirection: 'row' },
   typeToggle: { flexDirection: 'row', backgroundColor: '#F1F5F9', borderRadius: 14, padding: 4 },
   typeBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10 },
   typeBtnActive: { backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10 },
   typeBtnText: { fontSize: 14, fontWeight: '800', color: '#94A3B8' },
-  typeBtnTextActive: { color: '#6366F1' },
+  typeBtnTextActive: { color: '#63348C' },
   switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32, backgroundColor: '#F8FAFC', padding: 20, borderRadius: 20 },
   inputHint: { fontSize: 12, color: '#94A3B8', marginTop: 4, fontWeight: '500' },
   saveBtn: { backgroundColor: '#0F172A', paddingVertical: 18, borderRadius: 18, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 15 },
   saveBtnText: { color: '#fff', fontWeight: '900', fontSize: 16, letterSpacing: 0.5 },
   
   toast: { position: 'absolute', top: 40, left: 20, right: 20, zIndex: 10000, backgroundColor: '#0F172A', padding: 16, borderRadius: 16, flexDirection: 'row', alignItems: 'center', gap: 12, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 20 },
-  toastSuccess: { backgroundColor: '#10B981' },
+  toastSuccess: { backgroundColor: '#63348C' },
   toastError: { backgroundColor: '#EF4444' },
   toastText: { flex: 1, color: '#fff', fontSize: 14, fontWeight: '800' },
 });

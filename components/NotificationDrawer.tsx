@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated, Pressable, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { db } from '../lib/firebase';
-import { collection, query, orderBy, limit, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, orderBy, limit, onSnapshot, doc, updateDoc, writeBatch, getDocs, where } from 'firebase/firestore';
 import { router } from 'expo-router';
 
 interface Notification {
@@ -27,7 +27,7 @@ export default function NotificationDrawer({ open, onClose }: Props) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const q = query(collection(db, 'Notifications'), orderBy('timestamp', 'desc'), limit(20));
+    const q = query(collection(db, 'Notifications'), where('read', '==', false), orderBy('timestamp', 'desc'), limit(20));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetched = snapshot.docs.map(doc => ({
         id: doc.id,
@@ -41,15 +41,40 @@ export default function NotificationDrawer({ open, onClose }: Props) {
   }, []);
 
   const handleNotifPress = async (notif: Notification) => {
+    // 1. Mark as read immediately
     if (!notif.read) {
       try {
         await updateDoc(doc(db, 'Notifications', notif.id), { read: true });
       } catch (e) { console.log("Error marking as read:", e); }
     }
 
-    if (notif.type === 'order' && notif.orderId) {
-      onClose();
-      router.push(`/orden/${notif.orderId}`);
+    // 2. Close drawer
+    onClose();
+
+    // 3. Navigate if possible
+    if (notif.orderId) {
+      if (notif.title.toLowerCase().includes('reserva')) {
+        router.push('/agenda');
+      } else {
+        router.push(`/orden/${notif.orderId}`);
+      }
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      const q = query(collection(db, 'Notifications'), where('read', '==', false));
+      const snapshot = await getDocs(q);
+      
+      if (snapshot.empty) return;
+
+      const batch = writeBatch(db);
+      snapshot.docs.forEach((d) => {
+        batch.update(doc(db, 'Notifications', d.id), { read: true });
+      });
+      await batch.commit();
+    } catch (e) {
+      console.log("Error marking all as read:", e);
     }
   };
 
@@ -77,7 +102,12 @@ export default function NotificationDrawer({ open, onClose }: Props) {
       <Pressable style={styles.backdrop} onPress={onClose} />
       <Animated.View style={[styles.drawer, { transform: [{ translateX: slideAnim }] }]}>
         <View style={styles.header}>
-          <Text style={styles.title}>Notificaciones</Text>
+          <View>
+            <Text style={styles.title}>Notificaciones</Text>
+            <TouchableOpacity onPress={markAllAsRead} style={styles.markReadBtn}>
+              <Text style={styles.markReadText}>Marcar todo como leído</Text>
+            </TouchableOpacity>
+          </View>
           <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
             <Ionicons name="close" size={24} color="#475569" />
           </TouchableOpacity>
@@ -85,7 +115,7 @@ export default function NotificationDrawer({ open, onClose }: Props) {
 
         <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
           {loading ? (
-            <ActivityIndicator size="large" color="#6366F1" style={{ marginTop: 40 }} />
+            <ActivityIndicator size="large" color="#63348C" style={{ marginTop: 40 }} />
           ) : notifications.length === 0 ? (
             <View style={{ marginTop: 60, alignItems: 'center', opacity: 0.5 }}>
               <Ionicons name="notifications-off-outline" size={48} color="#94A3B8" />
@@ -99,10 +129,14 @@ export default function NotificationDrawer({ open, onClose }: Props) {
                 activeOpacity={0.7}
                 onPress={() => handleNotifPress(notif)}
               >
-                <View style={[styles.iconWrapper, styles[`icon_${notif.type}` as keyof typeof styles] || styles.icon_system]}>
+                <View style={[
+                  styles.iconWrapper, 
+                  notif.type === 'order' && notif.title.toLowerCase().includes('reserva') ? styles.icon_booking : 
+                  (styles[`icon_${notif.type}` as keyof typeof styles] || styles.icon_system)
+                ]}>
                   <Ionicons 
                     name={
-                      notif.type === 'order' ? 'receipt' : 
+                      notif.type === 'order' ? (notif.title.toLowerCase().includes('reserva') ? 'calendar' : 'receipt') : 
                       notif.type === 'user' ? 'person' : 
                       notif.type === 'promo' ? 'pricetag' : 'settings'
                     } 
@@ -179,6 +213,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  markReadBtn: {
+    marginTop: 4,
+  },
+  markReadText: {
+    fontSize: 12,
+    color: '#63348C',
+    fontWeight: '700',
+    textDecorationLine: 'underline',
+  },
   scroll: {
     flex: 1,
     padding: 16,
@@ -201,8 +244,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  icon_order: { backgroundColor: '#6366F1' },
-  icon_user: { backgroundColor: '#10B981' },
+  icon_order: { backgroundColor: '#63348C' },
+  icon_booking: { backgroundColor: '#63348C' },
+  icon_user: { backgroundColor: '#63348C' },
   icon_promo: { backgroundColor: '#F59E0B' },
   icon_system: { backgroundColor: '#64748B' },
   content: {
@@ -223,7 +267,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#6366F1',
+    backgroundColor: '#63348C',
   },
   notifDesc: {
     fontSize: 13,
@@ -245,6 +289,6 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#6366F1',
+    color: '#63348C',
   },
 });

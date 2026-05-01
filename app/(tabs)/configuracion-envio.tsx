@@ -14,8 +14,11 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
+import OriginLocationModal from '../../components/OriginLocationModal';
+import SuccessModal from '../../components/SuccessModal';
+
 
 export default function ShippingConfigScreen() {
   const { width } = useWindowDimensions();
@@ -23,6 +26,13 @@ export default function ShippingConfigScreen() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [mapVisible, setMapVisible] = useState(false);
+  const [modalConfig, setModalConfig] = useState({ 
+    visible: false, 
+    title: '', 
+    message: '', 
+    type: 'success' as 'success' | 'error' | 'warning' 
+  });
 
   // Form State
   const [baseCost, setBaseCost] = useState('0');
@@ -46,10 +56,18 @@ export default function ShippingConfigScreen() {
         setBaseCost(data.baseCost?.toString() || '0');
         setCostPerKm(data.costPerKm?.toString() || '0');
         setFreeShippingThreshold(data.freeShippingThreshold?.toString() || '0');
-        setLat(data.originLocation?.lat?.toString() || '');
-        setLng(data.originLocation?.lng?.toString() || '');
-        setAddress(data.originLocation?.address || '');
       }
+
+      // Fetch Origin separately as requested
+      const originRef = doc(db, 'ClinicOrigin', 'origin');
+      const originSnap = await getDoc(originRef);
+      if (originSnap.exists()) {
+        const originData = originSnap.data();
+        setLat(originData.lat?.toString() || '');
+        setLng(originData.lng?.toString() || '');
+        setAddress(originData.address || '');
+      }
+
     } catch (error) {
       console.error('Error fetching shipping config:', error);
     } finally {
@@ -73,19 +91,29 @@ export default function ShippingConfigScreen() {
       };
 
       await setDoc(doc(db, 'Settings', 'shipping'), config);
+
+      // Save origin to a separate collection as requested
+      await setDoc(doc(db, 'ClinicOrigin', 'origin'), {
+        address,
+        lat: parseFloat(lat) || 0,
+        lng: parseFloat(lng) || 0,
+        updatedAt: new Date().toISOString(),
+      });
       
-      if (Platform.OS === 'web') {
-        alert('Configuración guardada exitosamente');
-      } else {
-        Alert.alert('Éxito', 'Configuración guardada exitosamente');
-      }
+      setModalConfig({
+        visible: true,
+        title: "Configuración Guardada",
+        message: "Las tarifas de envío y la ubicación de origen se han actualizado correctamente.",
+        type: 'success'
+      });
     } catch (error) {
-       console.error('Error saving shipping config:', error);
-       if (Platform.OS === 'web') {
-         alert('Error al guardar la configuración');
-       } else {
-         Alert.alert('Error', 'No se pudo guardar la configuración');
-       }
+      console.error('Error saving shipping config:', error);
+      setModalConfig({
+        visible: true,
+        title: "Error al guardar",
+        message: "No se pudo actualizar la configuración. Por favor intenta de nuevo.",
+        type: 'error'
+      });
     } finally {
       setSaving(false);
     }
@@ -94,7 +122,7 @@ export default function ShippingConfigScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#6366F1" />
+        <ActivityIndicator size="large" color="#63348C" />
       </View>
     );
   }
@@ -115,7 +143,7 @@ export default function ShippingConfigScreen() {
               <Ionicons name="chevron-back" size={24} color="#0F172A" />
             </TouchableOpacity>
             
-            <View style={!isDesktop && { alignItems: 'center' }}>
+            <View style={!isDesktop ? { alignItems: 'center' } : undefined}>
               <Text style={[styles.title, !isDesktop && styles.titleMobile]}>Configuración de Envío</Text>
               {isDesktop && <Text style={styles.subtitle}>Define las tarifas y el origen de los pedidos</Text>}
             </View>
@@ -125,21 +153,26 @@ export default function ShippingConfigScreen() {
             <TouchableOpacity 
               style={styles.saveBtn} 
               onPress={handleSave}
+              disabled={saving}
               activeOpacity={0.8}
             >
-              <Ionicons name="save-outline" size={20} color="#fff" />
-              <Text style={styles.saveBtnText}>Guardar Cambios</Text>
+              {saving ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="save-outline" size={20} color="#fff" />
+                  <Text style={styles.saveBtnText}>Guardar Cambios</Text>
+                </>
+              )}
             </TouchableOpacity>
           )}
         </View>
 
         <View style={[styles.mainGrid, isDesktop && styles.mainGridDesktop]}>
-          
-          <View style={isDesktop ? styles.column : null}>
+          <View style={isDesktop ? styles.column : undefined}>
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Calculadora de Costos</Text>
               <View style={styles.card}>
-                
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Costo Base ($ CLP)</Text>
                   <View style={styles.inputWrapper}>
@@ -184,16 +217,14 @@ export default function ShippingConfigScreen() {
                   </View>
                   <Text style={styles.inputHint}>Si el total de la compra supera este monto, el envío será gratis.</Text>
                 </View>
-
               </View>
             </View>
           </View>
 
-          <View style={isDesktop ? styles.column : null}>
+          <View style={isDesktop ? styles.column : undefined}>
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Ubicación de la Veterinaria (Origen)</Text>
               <View style={styles.card}>
-                
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Dirección Exacta</Text>
                   <View style={styles.inputWrapper}>
@@ -234,8 +265,17 @@ export default function ShippingConfigScreen() {
                   </View>
                 </View>
 
+                <TouchableOpacity 
+                  style={styles.mapTriggerBtn}
+                  onPress={() => setMapVisible(true)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="map-outline" size={20} color="#10B981" />
+                  <Text style={styles.mapTriggerText}>Seleccionar en Mapa</Text>
+                </TouchableOpacity>
+
                 <View style={styles.infoBox}>
-                  <Ionicons name="information-circle" size={20} color="#6366F1" />
+                  <Ionicons name="information-circle" size={20} color="#63348C" />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.infoTitle}>¿Por qué son importantes estos datos?</Text>
                     <Text style={styles.infoText}>
@@ -243,14 +283,49 @@ export default function ShippingConfigScreen() {
                     </Text>
                   </View>
                 </View>
-
               </View>
             </View>
           </View>
-
         </View>
-
       </ScrollView>
+
+      <OriginLocationModal 
+        visible={mapVisible}
+        onClose={() => setMapVisible(false)}
+        onSave={(loc) => {
+          setAddress(loc.address);
+          setLat(loc.lat.toString());
+          setLng(loc.lng.toString());
+        }}
+      />
+
+      {!isDesktop && (
+        <View style={styles.mobileFooter}>
+          <TouchableOpacity 
+            style={styles.mobileSaveBtn} 
+            onPress={handleSave}
+            disabled={saving}
+            activeOpacity={0.8}
+          >
+            {saving ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <Ionicons name="save-outline" size={20} color="#fff" />
+                <Text style={styles.mobileSaveBtnText}>Guardar Cambios</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+
+      <SuccessModal 
+        visible={modalConfig.visible}
+        onClose={() => setModalConfig(prev => ({ ...prev, visible: false }))}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        type={modalConfig.type}
+      />
     </SafeAreaView>
   );
 }
@@ -275,20 +350,20 @@ const styles = StyleSheet.create({
   contentDesktop: { width: '100%', padding: 40, paddingTop: 32 },
   titleWrapper: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   titleWrapperMobile: { width: '100%', justifyContent: 'center', alignItems: 'center', position: 'relative', minHeight: 44 },
-  inlineBackBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' },
+  inlineBackBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' },
   inlineBackBtnMobile: { position: 'absolute', left: 0, zIndex: 10 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 40, flexWrap: 'wrap', gap: 24 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 24 },
   headerMobile: { flexDirection: 'column', gap: 20, marginBottom: 24 },
-  title: { fontSize: 32, fontWeight: '900', color: '#0F172A', letterSpacing: -1 },
+  title: { fontSize: 22, fontWeight: '900', color: '#0F172A', letterSpacing: -0.5 },
   titleMobile: { fontSize: 20, textAlign: 'center', fontWeight: '800' },
-  subtitle: { fontSize: 14, color: '#64748B', marginTop: 2, fontWeight: '500' },
+  subtitle: { fontSize: 12, color: '#64748B', marginTop: 2, fontWeight: '500' },
   saveBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#10B981',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
     gap: 6,
     shadowColor: '#10B981',
     shadowOffset: { width: 0, height: 4 },
@@ -299,7 +374,7 @@ const styles = StyleSheet.create({
   saveBtnText: {
     color: '#fff',
     fontWeight: '800',
-    fontSize: 13,
+    fontSize: 12,
   },
   mainGrid: {
     flexDirection: 'column',
@@ -317,60 +392,60 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   sectionTitle: {
-    fontSize: 22,
+    fontSize: 16,
     fontWeight: '900',
     color: '#0F172A',
-    marginBottom: 24,
-    letterSpacing: -0.5,
+    marginBottom: 20,
+    letterSpacing: -0.3,
   },
   card: {
     backgroundColor: '#fff',
-    borderRadius: 32,
-    padding: 28,
+    borderRadius: 24,
+    padding: 20,
     borderWidth: 1,
     borderColor: '#F1F5F9',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 20 },
+    shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.04,
-    shadowRadius: 40,
+    shadowRadius: 30,
     elevation: 3,
   },
   inputGroup: {
     marginBottom: 28,
   },
   label: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
     color: '#64748B',
-    marginBottom: 10,
+    marginBottom: 8,
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 0.5,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F8FAFC',
-    borderRadius: 20,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderWidth: 1.5,
-    borderColor: '#F1F5F9',
-    gap: 14,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 12,
   },
   input: {
     flex: 1,
-    fontSize: 18,
+    fontSize: 15,
     color: '#0F172A',
-    fontWeight: '900',
+    fontWeight: '800',
     ...Platform.select({
       web: { outlineStyle: 'none' } as any,
     }),
   },
   inputHint: {
-    fontSize: 12,
+    fontSize: 10.5,
     color: '#94A3B8',
-    marginTop: 10,
-    lineHeight: 18,
+    marginTop: 8,
+    lineHeight: 16,
     fontWeight: '500',
     paddingHorizontal: 4,
   },
@@ -398,8 +473,57 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 13,
-    color: '#6366F1',
+    color: '#63348C',
     lineHeight: 20,
     fontWeight: '600',
   },
+  mapTriggerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#DCFCE7',
+    paddingVertical: 14,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#BBF7D0',
+    gap: 10,
+    marginTop: -8,
+    marginBottom: 20
+  },
+  mapTriggerText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#059669',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5
+  },
+  mobileFooter: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  mobileSaveBtn: {
+    backgroundColor: '#10B981',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 16,
+    gap: 8,
+  },
+  mobileSaveBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '800',
+  }
 });

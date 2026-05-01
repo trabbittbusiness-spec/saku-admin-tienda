@@ -117,7 +117,7 @@ export default function ForgotPasswordScreen() {
                   activeOpacity={0.9}
                 >
                   <LinearGradient
-                    colors={['#8B5CF6', '#6366F1']}
+                    colors={['#63348C', '#63348C']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.actionBtn}
@@ -136,7 +136,7 @@ export default function ForgotPasswordScreen() {
             ) : (
               <View style={styles.successContainer}>
                 <View style={styles.successIcon}>
-                  <Ionicons name="checkmark-circle" size={64} color="#10B981" />
+                  <Ionicons name="checkmark-circle" size={64} color="#63348C" />
                 </View>
                 <Text style={styles.successText}>
                   Revisa tu bandeja de entrada en <Text style={styles.emailHighlight}>{email}</Text>
@@ -204,12 +204,12 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: '#3B1E54',
+    backgroundColor: '#63348C',
     padding: 25,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
-    shadowColor: '#8B5CF6',
+    shadowColor: '#63348C',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
     shadowRadius: 20,

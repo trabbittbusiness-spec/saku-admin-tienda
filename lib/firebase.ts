@@ -1,6 +1,8 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
+import { Platform } from 'react-native';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getMessaging } from 'firebase/messaging';
 import { getFunctions } from 'firebase/functions';
 import { getStorage } from 'firebase/storage';
 
@@ -20,5 +22,6 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const functions = getFunctions(app);
 const storage = getStorage(app);
+const messaging = Platform.OS === 'web' ? getMessaging(app) : null;
 
-export { app, auth, db, functions, storage };
+export { app, auth, db, functions, storage, messaging };

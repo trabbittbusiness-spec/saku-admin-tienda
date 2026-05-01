@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { db } from '../../../lib/firebase';
-import { doc, onSnapshot, updateDoc, deleteDoc, Timestamp, addDoc, collection, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, deleteDoc, Timestamp, addDoc, collection, getDoc, serverTimestamp } from 'firebase/firestore';
 
 import * as Clipboard from 'expo-clipboard';
 
@@ -28,8 +28,8 @@ const mapToUIStatus = (dbStatus: string) => {
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string; icon: any }> = {
   'Pendiente': { color: '#F59E0B', bg: '#FEF3C7', icon: 'time-outline' },
-  'Enviado':   { color: '#6366F1', bg: '#EEF2FF', icon: 'bicycle-outline' },
-  'Entregado': { color: '#10B981', bg: '#DCFCE7', icon: 'checkmark-circle-outline' },
+  'Enviado':   { color: '#63348C', bg: '#EEF2FF', icon: 'bicycle-outline' },
+  'Entregado': { color: '#63348C', bg: '#DCFCE7', icon: 'checkmark-circle-outline' },
   'Cancelado': { color: '#EF4444', bg: '#FEE2E2', icon: 'close-circle-outline' },
 };
 
@@ -121,6 +121,23 @@ export default function OrdenDetalleScreen() {
         leida: false,
         creadaEn: Timestamp.now(),
       });
+
+      // Send Push Notification if it's an important status change
+      if (['Enviado', 'Entregado', 'Cancelado'].includes(newStatus) && creadorRef) {
+        const creatorId = creadorRef.id;
+        await addDoc(collection(db, 'ff_user_push_notifications'), {
+          initial_page_name: 'orders',
+          notification_text: msg.body,
+          notification_title: msg.title,
+          num_sent: 1,
+          parameter_data: JSON.stringify({ orderId: decodeURIComponent(id) }),
+          sender: doc(db, 'users', 'system_admin'), // Or auth.currentUser?.uid
+          status: 'pending',
+          app_target: 'tienda',
+          timestamp: serverTimestamp(),
+          user_refs: `users/${creatorId}`
+        });
+      }
     } catch (e) {
       console.log('Error updating order:', e);
     } finally {
@@ -158,7 +175,7 @@ export default function OrdenDetalleScreen() {
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF' }}>
         <Text style={{ fontSize: 18, fontWeight: '800' }}>Orden no encontrada</Text>
         <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
-          <Text style={{ color: '#6366F1', fontWeight: '900' }}>Volver</Text>
+          <Text style={{ color: '#63348C', fontWeight: '900' }}>Volver</Text>
         </TouchableOpacity>
       </View>
     );
@@ -201,7 +218,7 @@ export default function OrdenDetalleScreen() {
                   style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}
                 >
                   <Text style={{ fontSize: isDesktop ? 26 : 18, fontWeight: '900', color: '#111827' }} numberOfLines={1}>{order.id}</Text>
-                  {copied ? <Ionicons name="checkmark" size={16} color="#10B981" /> : <Ionicons name="copy-outline" size={16} color="#9CA3AF" />}
+                  {copied ? <Ionicons name="checkmark" size={16} color="#63348C" /> : <Ionicons name="copy-outline" size={16} color="#9CA3AF" />}
                 </TouchableOpacity>
 
                 <TouchableOpacity 
@@ -314,7 +331,7 @@ export default function OrdenDetalleScreen() {
                       <Image source={{ uri: item.foto || item.image }} style={[s.productImage, { width: 34, height: 34 }]} />
                       <View style={{ flex: 1 }}>
                         <Text style={[s.productName, { fontSize: 12 }]} numberOfLines={1}>{item.nombre || item.name}</Text>
-                        <Text style={[s.productMeta, { fontSize: 10 }]}>x{item.cantidad} • ${ (item.precio || 0).toLocaleString() }</Text>
+                        <Text style={[s.productMeta, { fontSize: 10 }]}>x{item.cantidad} • ${ (item.precio || 0).toLocaleString("de-DE") }</Text>
                       </View>
                     </View>
                   ))}
@@ -323,7 +340,7 @@ export default function OrdenDetalleScreen() {
 
               {order.note ? (
                 <View style={[s.noteBox, { marginTop: 10, padding: 8 }]}>
-                  <Ionicons name="chatbubble-ellipses-outline" size={14} color="#6366F1" />
+                  <Ionicons name="chatbubble-ellipses-outline" size={14} color="#63348C" />
                   <Text style={[s.noteText, { fontSize: 11 }]}>{order.note}</Text>
                 </View>
               ) : null}
@@ -381,17 +398,17 @@ export default function OrdenDetalleScreen() {
                 <View style={{ gap: 6 }}>
                    <View style={s.totalRow}>
                       <Text style={[s.totalRowLabel, { fontSize: 11 }]}>Subtotal</Text>
-                      <Text style={[s.totalRowValue, { fontSize: 12 }]}>${order.subtotal.toLocaleString()}</Text>
+                      <Text style={[s.totalRowValue, { fontSize: 12 }]}>${order.subtotal.toLocaleString("de-DE")}</Text>
                    </View>
                    <View style={s.totalRow}>
                       <Text style={[s.totalRowLabel, { fontSize: 11 }]}>Envío</Text>
-                      <Text style={[s.totalRowValue, { fontSize: 12, color: '#10B981' }]}>{order.shipping === 0 ? 'Gratis' : `$${order.shipping.toLocaleString()}`}</Text>
+                      <Text style={[s.totalRowValue, { fontSize: 12, color: '#63348C' }]}>{order.shipping === 0 ? 'Gratis' : `$${order.shipping.toLocaleString("de-DE")}`}</Text>
                    </View>
                 </View>
 
                 <View style={[s.totalCard, { padding: 10 }]}>
                    <Text style={[s.totalCardLabel, { fontSize: 9 }]}>TOTAL</Text>
-                   <Text style={[s.totalCardAmount, { fontSize: 20 }]}>${order.total.toLocaleString()}</Text>
+                   <Text style={[s.totalCardAmount, { fontSize: 20 }]}>${order.total.toLocaleString("de-DE")}</Text>
                 </View>
               </View>
             </View>
@@ -435,7 +452,7 @@ const s = StyleSheet.create({
   timelineActiveLine: { position: 'absolute', left: '5%', top: 16, height: 2, backgroundColor: '#111827', zIndex: -1 },
   timelineDot: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#F3F4F6' },
   timelineDotActive: { backgroundColor: '#111827', borderColor: '#111827' },
-  timelineDotCurrent: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#10B981' },
+  timelineDotCurrent: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#63348C' },
   timelineLabel: { fontSize: 10, fontWeight: '600', color: '#9CA3AF' },
   timelineLabelActive: { fontWeight: '800', color: '#111827' },
 
@@ -476,7 +493,7 @@ const s = StyleSheet.create({
   productMeta: { fontSize: 11, color: '#9CA3AF', fontWeight: '600', marginTop: 1 },
   
   noteBox: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#EEF2FF', padding: 12, borderRadius: 12, marginTop: 15 },
-  noteText: { fontSize: 12, color: '#6366F1', fontWeight: '600', flex: 1 },
+  noteText: { fontSize: 12, color: '#63348C', fontWeight: '600', flex: 1 },
 
   sectionLabel: { color: '#9CA3AF', fontSize: 10, fontWeight: '800', letterSpacing: 0.5, marginBottom: 12, textTransform: 'uppercase' },
   infoIconWrap: { width: 28, height: 28, borderRadius: 6, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center' },

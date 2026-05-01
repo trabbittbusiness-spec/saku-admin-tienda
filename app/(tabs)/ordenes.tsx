@@ -17,7 +17,7 @@ const PAGE_SIZE = 6;
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any; bg: string; dot: string }> = {
   'Pendiente':  { label: 'Pendiente',  color: '#F59E0B', bg: '#FEF3C7', dot: '#F59E0B', icon: 'time-outline' },
-  'Enviado':    { label: 'Enviado',    color: '#6366F1', bg: '#EEF2FF', dot: '#6366F1', icon: 'bicycle-outline' },
+  'Enviado':    { label: 'Enviado',    color: '#3B82F6', bg: '#EFF6FF', dot: '#3B82F6', icon: 'bicycle-outline' },
   'Entregado':  { label: 'Entregado',  color: '#10B981', bg: '#DCFCE7', dot: '#10B981', icon: 'checkmark-circle-outline' },
   'Cancelado':  { label: 'Cancelado',  color: '#EF4444', bg: '#FEE2E2', dot: '#EF4444', icon: 'close-circle-outline' },
 };
@@ -69,15 +69,15 @@ function OrderDetailPanel({ order, onClose }: { order: any; onClose: () => void 
           <Text style={detail.sectionTitle}>CLIENTE</Text>
           <View style={detail.infoCard}>
             <View style={detail.infoRow}>
-              <Ionicons name="person-outline" size={16} color="#6366F1" />
+              <Ionicons name="person-outline" size={16} color="#63348C" />
               <Text style={detail.infoText}>{order.client}</Text>
             </View>
             <View style={detail.infoRow}>
-              <Ionicons name="call-outline" size={16} color="#6366F1" />
+              <Ionicons name="call-outline" size={16} color="#63348C" />
               <Text style={detail.infoText}>{order.phone}</Text>
             </View>
             <View style={detail.infoRow}>
-              <Ionicons name="mail-outline" size={16} color="#6366F1" />
+              <Ionicons name="mail-outline" size={16} color="#63348C" />
               <Text style={detail.infoText}>{order.email}</Text>
             </View>
           </View>
@@ -88,16 +88,16 @@ function OrderDetailPanel({ order, onClose }: { order: any; onClose: () => void 
           <Text style={detail.sectionTitle}>ENTREGA</Text>
           <View style={detail.infoCard}>
             <View style={detail.infoRow}>
-              <Ionicons name={order.type === 'pickup' ? 'storefront-outline' : 'bicycle-outline'} size={16} color="#6366F1" />
+              <Ionicons name={order.type === 'pickup' ? 'storefront-outline' : 'bicycle-outline'} size={16} color="#63348C" />
               <Text style={detail.infoText}>{order.type === 'pickup' ? 'Retiro en tienda' : 'Delivery'}</Text>
             </View>
             <View style={detail.infoRow}>
-              <Ionicons name="location-outline" size={16} color="#6366F1" />
+              <Ionicons name="location-outline" size={16} color="#63348C" />
               <Text style={detail.infoText}>{order.address}</Text>
             </View>
             {order.note ? (
               <View style={detail.infoRow}>
-                <Ionicons name="chatbubble-outline" size={16} color="#6366F1" />
+                <Ionicons name="chatbubble-outline" size={16} color="#63348C" />
                 <Text style={detail.infoText}>{order.note}</Text>
               </View>
             ) : null}
@@ -120,7 +120,7 @@ function OrderDetailPanel({ order, onClose }: { order: any; onClose: () => void 
                 <Text style={detail.productName}>{item.nombre}</Text>
                 <Text style={detail.productQty}>Cant: {item.cantidad} · {item.medida}</Text>
               </View>
-              <Text style={detail.productPrice}>${(item.precio || 0).toLocaleString()}</Text>
+              <Text style={detail.productPrice}>${(item.precio || 0).toLocaleString("de-DE")}</Text>
             </View>
           ))}
         </View>
@@ -256,11 +256,11 @@ function ProcessingModal({ visible, type = 'loading' }: { visible: boolean; type
       <Animated.View style={{ alignItems: 'center', transform: [{ scale }] }}>
         {type === 'loading' ? (
           <View style={proc.circle}>
-            <ActivityIndicator size="large" color="#6366F1" />
+            <ActivityIndicator size="large" color="#63348C" />
           </View>
         ) : type === 'success' ? (
           <View style={[proc.circle, { backgroundColor: '#DCFCE7' }]}>
-            <Ionicons name="checkmark" size={40} color="#10B981" />
+            <Ionicons name="checkmark" size={40} color="#63348C" />
           </View>
         ) : (
           <View style={[proc.circle, { backgroundColor: '#FEE2E2' }]}>
@@ -275,7 +275,7 @@ function ProcessingModal({ visible, type = 'loading' }: { visible: boolean; type
 }
 
 const proc = StyleSheet.create({
-  circle: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center', marginBottom: 20, shadowColor: '#6366F1', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 20 },
+  circle: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center', marginBottom: 20, shadowColor: '#63348C', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 20 },
   title: { fontSize: 20, fontWeight: '900', color: '#0F172A', marginBottom: 8 },
   subtitle: { fontSize: 14, color: '#64748B', fontWeight: '500' },
 });
@@ -284,12 +284,12 @@ const scanner = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'transparent' },
   unfocused: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' },
   viewfinder: { width: 260, height: 260, backgroundColor: 'transparent', overflow: 'hidden' },
-  corner: { position: 'absolute', width: 40, height: 40, borderColor: '#6366F1' },
-  line: { position: 'absolute', left: 0, right: 0, height: 3, backgroundColor: '#6366F1', shadowColor: '#6366F1', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 8 },
+  corner: { position: 'absolute', width: 40, height: 40, borderColor: '#63348C' },
+  line: { position: 'absolute', left: 0, right: 0, height: 3, backgroundColor: '#63348C', shadowColor: '#63348C', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 8 },
   hint: { color: '#fff', fontWeight: '700', fontSize: 15, marginBottom: 30 },
   closeBtn: { backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 30, paddingVertical: 14, borderRadius: 100 },
   closeText: { color: '#fff', fontWeight: '800', fontSize: 15 },
-  permBtn: { backgroundColor: '#6366F1', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, marginTop: 30 },
+  permBtn: { backgroundColor: '#63348C', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, marginTop: 30 },
   permText: { color: '#fff', fontWeight: '700' },
 });
 
@@ -368,7 +368,7 @@ export default function OrdenesScreen() {
           displayId: data.codigoRetiro || data.ID_orden || doc.id,
           client: data.nombre || data.clientName || 'Sin nombre',
           items: (data.items || []).length,
-          amount: `$${(data.total || 0).toLocaleString()}`,
+          amount: `$${(data.total || 0).toLocaleString("de-DE")}`,
           status: mapToUIStatus(data.estado),
           date: formatDate(data.timestamp || data.fechaCreacion),
           address: data.direccion?.texto || data.direccion?.main || 'Retiro en Sucursal',
@@ -425,7 +425,7 @@ export default function OrdenesScreen() {
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
-        <ActivityIndicator size="large" color="#6366F1" />
+        <ActivityIndicator size="large" color="#63348C" />
         <Text style={{ marginTop: 12, color: '#94A3B8', fontWeight: '600' }}>Cargando órdenes...</Text>
       </View>
     );
@@ -636,12 +636,12 @@ export default function OrdenesScreen() {
 
 // ─── Choice Chip Styles ──────────────────────────────────
 const chip = StyleSheet.create({
-  pill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 9, borderRadius: 100, backgroundColor: '#ffffff', borderWidth: 1.5, borderColor: '#E2E8F0' },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 100, backgroundColor: '#ffffff', borderWidth: 1.5, borderColor: '#E2E8F0' },
   pillActive: { backgroundColor: '#0F172A', borderColor: '#0F172A' },
-  text: { fontSize: 13, fontWeight: '700', color: '#64748B' },
+  text: { fontSize: 12, fontWeight: '700', color: '#64748B' },
   textActive: { color: '#fff' },
-  badge: { borderRadius: 100, paddingHorizontal: 6, paddingVertical: 1 },
-  badgeText: { fontSize: 11, fontWeight: '800' },
+  badge: { borderRadius: 100, paddingHorizontal: 5, paddingVertical: 0 },
+  badgeText: { fontSize: 10, fontWeight: '800' },
 });
 
 // ─── Order Detail Styles ─────────────────────────────────
@@ -662,7 +662,7 @@ const detail = StyleSheet.create({
   productEmoji: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
   productName: { fontSize: 14, fontWeight: '700', color: '#0F172A', marginBottom: 2 },
   productQty: { fontSize: 12, color: '#94A3B8', fontWeight: '500' },
-  productPrice: { fontSize: 14, fontWeight: '800', color: '#6366F1' },
+  productPrice: { fontSize: 14, fontWeight: '800', color: '#63348C' },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 20, marginTop: 16, padding: 16, backgroundColor: '#0F172A', borderRadius: 16 },
   totalLabel: { fontSize: 14, fontWeight: '700', color: 'rgba(255,255,255,0.7)' },
   totalAmount: { fontSize: 20, fontWeight: '900', color: '#fff' },
@@ -675,21 +675,21 @@ const detail = StyleSheet.create({
 const ds = StyleSheet.create({
   content: { padding: 32, alignSelf: 'center', width: '100%', maxWidth: 1400 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
-  pageTitle: { fontSize: 26, fontWeight: '900', color: '#0F172A', letterSpacing: -0.5, marginBottom: 4 },
-  pageSubtitle: { fontSize: 13, color: '#64748B', fontWeight: '500' },
+  pageTitle: { fontSize: 22, fontWeight: '900', color: '#0F172A', letterSpacing: -0.5, marginBottom: 2 },
+  pageSubtitle: { fontSize: 12, color: '#64748B', fontWeight: '500' },
   codeBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  controlBar: { flexDirection: 'row', gap: 16, alignItems: 'center', backgroundColor: '#fff', padding: 12, borderRadius: 16, borderWidth: 1, borderColor: '#F1F5F9', marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.02, shadowRadius: 8 },
-  searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8, width: 280, borderWidth: 1, borderColor: '#E2E8F0', gap: 8 },
-  searchBoxFocused: { borderColor: '#6366F1', shadowColor: '#6366F1', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.1, shadowRadius: 10, backgroundColor: '#fff' },
-  searchInput: { flex: 1, fontSize: 14, color: '#0F172A', outlineStyle: 'none', borderWidth: 0 } as any,
+  controlBar: { flexDirection: 'row', gap: 12, alignItems: 'center', backgroundColor: '#fff', padding: 10, borderRadius: 12, borderWidth: 1, borderColor: '#F1F5F9', marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.02, shadowRadius: 8 },
+  searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, width: 220, borderWidth: 1, borderColor: '#E2E8F0', gap: 8 },
+  searchBoxFocused: { borderColor: '#63348C', shadowColor: '#63348C', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.1, shadowRadius: 10, backgroundColor: '#fff' },
+  searchInput: { flex: 1, fontSize: 13, color: '#0F172A', outlineStyle: 'none', borderWidth: 0 } as any,
   tableWrap: { backgroundColor: '#fff', borderRadius: 20, borderWidth: 1, borderColor: '#F1F5F9', overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.02, shadowRadius: 12, paddingBottom: 4 },
-  tableHeaderRow: { flexDirection: 'row', backgroundColor: '#F8FAFC', paddingVertical: 14, paddingHorizontal: 24, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
-  th: { fontSize: 11, fontWeight: '800', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.5 },
-  tableRow: { flexDirection: 'row', paddingVertical: 16, paddingHorizontal: 24, borderBottomWidth: 1, borderBottomColor: '#F8FAFC', alignItems: 'center' },
+  tableHeaderRow: { flexDirection: 'row', backgroundColor: '#F8FAFC', paddingVertical: 12, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
+  th: { fontSize: 10, fontWeight: '800', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.5 },
+  tableRow: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: '#F8FAFC', alignItems: 'center' },
   tableRowSelected: { backgroundColor: '#F8FAFF' },
-  td: { fontSize: 14, color: '#475569', fontWeight: '500' },
-  tdBold: { fontSize: 14, color: '#0F172A', fontWeight: '800', marginBottom: 2 },
-  tdSub: { fontSize: 11, color: '#94A3B8', fontWeight: '500' },
+  td: { fontSize: 13, color: '#475569', fontWeight: '500' },
+  tdBold: { fontSize: 13, color: '#0F172A', fontWeight: '800', marginBottom: 1 },
+  tdSub: { fontSize: 10, color: '#94A3B8', fontWeight: '500' },
   statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100 },
   statusText: { fontSize: 11, fontWeight: '800' },
   actionBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#F8FAFC', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#F1F5F9' },
@@ -705,10 +705,10 @@ const ds = StyleSheet.create({
 const ms = StyleSheet.create({
   topHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 },
   mobileTitle: { fontSize: 26, fontWeight: '800', color: '#0F172A' },
-  qrBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#6366F1', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 14 },
+  qrBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#10B981', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 14 },
   qrBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
   searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffffff', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12, borderWidth: 1, borderColor: '#E2E8F0', gap: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.02, shadowRadius: 4 },
-  searchBoxFocused: { borderColor: '#6366F1', shadowColor: '#6366F1', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.1, shadowRadius: 8 },
+  searchBoxFocused: { borderColor: '#63348C', shadowColor: '#63348C', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.1, shadowRadius: 8 },
   searchInput: { flex: 1, fontSize: 15, color: '#0F172A', outlineStyle: 'none', borderWidth: 0 } as any,
   card: { backgroundColor: '#ffffff', borderRadius: 20, padding: 20, borderWidth: 1, borderColor: '#F1F5F9', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.03, shadowRadius: 12 },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 },

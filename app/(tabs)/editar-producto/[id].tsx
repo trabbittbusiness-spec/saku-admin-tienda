@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../../../lib/firebase';
-import { doc, getDoc, getDocs, collection, updateDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, getDocs, collection, updateDoc, serverTimestamp, deleteDoc, query, where, addDoc } from 'firebase/firestore';
 import {
   View,
   Text,
@@ -202,17 +202,18 @@ export default function EditarProductoScreen() {
   const [nombre, setNombre] = useState('');
   const [precio, setPrecio] = useState('');
   const [medida, setMedida] = useState('');
-  const [cantidadCreada, setCantidadCreada] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [categoria, setCategoria] = useState<string | string[]>('');
   const [marca, setMarca] = useState<string | string[]>('');
-  const [animalSelected, setAnimalSelected] = useState('');
+  const [animalSelected, setAnimalSelected] = useState<string[]>([]);
   const [tipo, setTipo] = useState('General');
   const [disponibilidad, setDisponibilidad] = useState(true);
   const [estadoPromocion, setEstadoPromocion] = useState(false);
   const [Receta, setReceta] = useState(false);
-  const [sizes, setSizes] = useState<string[]>([]);
-  const [newSize, setNewSize] = useState('');
+  const [variants, setVariants] = useState<{ label: string; price: number }[]>([]);
+  const [newVariantLabel, setNewVariantLabel] = useState('');
+  const [newVariantPrice, setNewVariantPrice] = useState('');
+  const [variantUnit, setVariantUnit] = useState<'gr' | 'kg'>('kg');
   const [foto1, setFoto1] = useState<string | null>(null);
   const [foto2, setFoto2] = useState<string | null>(null);
   const [foto3, setFoto3] = useState<string | null>(null);
@@ -259,15 +260,15 @@ export default function EditarProductoScreen() {
   }, []);
 
   const displayCategories = categoriesList
-    .filter(c => c.disponibilidad !== false && (!animalSelected || (c.animales || []).includes(animalSelected) || (c.animales || []).includes('Ambos')))
+    .filter(c => c.disponibilidad !== false && (animalSelected.length === 0 || (c.animales || []).some((a: string) => animalSelected.includes(a)) || (c.animales || []).includes('Ambos')))
     .map(c => c.nombre);
 
   const displayBrands = Array.from(new Set(
     brandsList
       .filter(b => {
         // 1. Filter by Animal
-        const matchAnimal = !animalSelected || 
-          b.Tipo_animal === animalSelected || 
+        const matchAnimal = animalSelected.length === 0 || 
+          animalSelected.includes(b.Tipo_animal) || 
           b.Tipo_animal === 'Ambos' || 
           b.Tipo_animal === 'Todos' ||
           !b.Tipo_animal;
@@ -298,16 +299,15 @@ export default function EditarProductoScreen() {
           setNombre(data.nombre || '');
           setPrecio(data.precio?.toString() || '');
           setMedida(data.medida || '');
-          setCantidadCreada(data.Cantidadcreada?.toString() || '1');
           setDescripcion(data.descripcion || '');
           setCategoria(data.categoria || '');
           setMarca(data.marca || '');
-          setAnimalSelected(data.animal || '');
+          setAnimalSelected(Array.isArray(data.animal) ? data.animal : (data.animal ? [data.animal] : []));
           setTipo(data.Tipo || 'General');
           setDisponibilidad(!!data.disponibilidad);
           setEstadoPromocion(!!data.estadoPromocion);
           setReceta(!!data.Receta);
-          setSizes(data.sizes || []);
+          setVariants(data.variants || []);
           setFoto1(data.foto1 || null);
           setFoto2(data.foto2 || null);
           setFoto3(data.foto3 || null);
@@ -317,18 +317,23 @@ export default function EditarProductoScreen() {
     fetchProduct();
   }, [id]);
 
-  const handleAnimalChange = (newAnimal: string) => {
-    if (newAnimal !== animalSelected) {
-      setAnimalSelected(newAnimal);
-      setCategoria([]);
-      setMarca([]);
-    }
+  const handleAnimalChange = (newAnimals: string[]) => {
+    setAnimalSelected(newAnimals);
+    setCategoria([]);
+    setMarca([]);
   };
 
-  const addSize = () => {
-    if (newSize.trim()) { setSizes((s) => [...s, newSize.trim()]); setNewSize(''); }
+  const addVariant = () => {
+    if (!newVariantLabel || !newVariantPrice) return;
+    let label = newVariantLabel.trim();
+    if (/^\d+(\.\d+)?$/.test(label)) {
+      label += ` ${variantUnit}`;
+    }
+    setVariants([...variants, { label, price: parseFloat(newVariantPrice) }]);
+    setNewVariantLabel('');
+    setNewVariantPrice('');
   };
-  const removeSize = (i: number) => setSizes((s) => s.filter((_, idx) => idx !== i));
+  const removeVariant = (i: number) => setVariants(variants.filter((_, idx) => idx !== i));
 
   const pickImage = async (setter: (v: string | null) => void) => {
     let result = await ImagePicker.launchImageLibraryAsync({
@@ -378,7 +383,7 @@ export default function EditarProductoScreen() {
         nombre, 
         precio: parseFloat(precio) || 0, 
         medida, 
-        Cantidadcreada: parseInt(cantidadCreada) || 0,
+
         descripcion, 
         categoria, 
         animal: animalSelected, 
@@ -386,7 +391,7 @@ export default function EditarProductoScreen() {
         estadoPromocion,
         disponibilidad, 
         Receta, 
-        sizes, 
+        variants, 
         foto1: url1, 
         foto2: url2, 
         foto3: url3, 
@@ -394,6 +399,34 @@ export default function EditarProductoScreen() {
         actualizadoEn: serverTimestamp()
       });
       showToast('Producto actualizado con éxito');
+
+      // Send Push Notification if product is put on sale
+      if (estadoPromocion) {
+        try {
+          // Fetch all non-admin users
+          const usersSnap = await getDocs(query(collection(db, 'users'), where('IsAdmin', '==', false)));
+          if (!usersSnap.empty) {
+            const userRefsArr = usersSnap.docs.map(d => `users/${d.id}`);
+            const userRefsString = userRefsArr.join(',');
+
+            await addDoc(collection(db, 'ff_user_push_notifications'), {
+              initial_page_name: 'index',
+              notification_text: `¡Aprovecha! ${nombre} ahora está en oferta.`,
+              notification_title: '🔥 ¡Nueva Oferta!',
+              num_sent: usersSnap.size,
+              parameter_data: JSON.stringify({ productId: id }),
+              sender: doc(db, 'users', auth.currentUser?.uid || 'admin'),
+              status: 'pending',
+              app_target: 'tienda',
+              timestamp: serverTimestamp(),
+              user_refs: userRefsString
+            });
+          }
+        } catch (pushErr) {
+          console.error('Error sending promotion push:', pushErr);
+        }
+      }
+
       setTimeout(() => router.back(), 1500);
     } catch (e) { 
       console.error(e); 
@@ -470,89 +503,126 @@ export default function EditarProductoScreen() {
 
       <ScrollView 
         style={styles.container} 
-        contentContainerStyle={[styles.content, isDesktop && { flex: 1, paddingHorizontal: 40 }]}
+        contentContainerStyle={[styles.content, isDesktop && { flex: 1, paddingHorizontal: 24, paddingVertical: 16 }]}
         showsVerticalScrollIndicator={!isDesktop}
+        scrollEnabled={!isDesktop}
       >
         <View style={[styles.mainLayout, isDesktop && styles.mainLayoutDesktop]}>
           
-          <View style={[styles.col, { flex: isDesktop ? 0.3 : 1 }]}>
-            <Text style={styles.colTitle}>Multimedia</Text>
-            <View style={styles.mediaRow}>
-              {[
-                { uri: foto1, setter: setFoto1, label: 'Principal' },
-                { uri: foto2, setter: setFoto2 },
-                { uri: foto3, setter: setFoto3 }
-              ].map((item, i) => (
-                <TouchableOpacity 
-                  key={i} 
-                  style={[styles.imageBox, !item.uri && { borderStyle: 'dashed' }]} 
-                  activeOpacity={0.7}
-                  onPress={() => pickImage(item.setter)}
-                >
-                  {item.uri ? (
-                    <Image source={{ uri: item.uri }} style={styles.imageFull} resizeMode="cover" />
+          {/* COL 1: Información & Estado */}
+          <View style={[styles.col, { flex: isDesktop ? 0.33 : 1 }]}>
+            <View style={styles.card}>
+              <Text style={styles.colTitle}>Información Básica</Text>
+              <CustomInput label="Nombre del producto" placeholder="Nombre..." value={nombre} onChangeText={setNombre} />
+              <CustomInput label="Descripción" placeholder="Detalles..." value={descripcion} onChangeText={setDescripcion} multiline />
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.colTitle}>Visibilidad</Text>
+              <View style={styles.inspectorCard}>
+                <View style={styles.toggleRow}>
+                  <Text style={styles.toggleText}>Disponibilidad</Text>
+                  <Switch value={disponibilidad} onValueChange={setDisponibilidad} trackColor={{ false: '#E2E8F0', true: '#10B981' }} thumbColor="#fff" />
+                </View>
+                <View style={[styles.toggleRow, { marginTop: 8 }]}>
+                  <Text style={styles.toggleText}>En Oferta</Text>
+                  <Switch value={estadoPromocion} onValueChange={setEstadoPromocion} trackColor={{ false: '#E2E8F0', true: '#10B981' }} thumbColor="#fff" />
+                </View>
+                <View style={[styles.toggleRow, { marginTop: 8 }]}>
+                  <Text style={styles.toggleText}>Receta</Text>
+                  <Switch value={Receta} onValueChange={setReceta} trackColor={{ false: '#E2E8F0', true: '#10B981' }} thumbColor="#fff" />
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* COL 2: Multimedia & Variantes */}
+          <View style={[styles.col, { flex: isDesktop ? 0.34 : 1, paddingHorizontal: isDesktop ? 16 : 0 }]}>
+            <View style={styles.card}>
+              <Text style={styles.colTitle}>Multimedia</Text>
+              <View style={styles.mediaRow}>
+                {[
+                  { uri: foto1, setter: setFoto1 },
+                  { uri: foto2, setter: setFoto2 },
+                  { uri: foto3, setter: setFoto3 }
+                ].map((item, i) => (
+                  <TouchableOpacity 
+                    key={i} 
+                    style={[styles.imageBox, !item.uri && { borderStyle: 'dashed' }]} 
+                    activeOpacity={0.7}
+                    onPress={() => pickImage(item.setter)}
+                  >
+                    {item.uri ? (
+                      <View style={{ flex: 1 }}>
+                        <Image source={{ uri: item.uri }} style={styles.imageFull} resizeMode="cover" />
+                        <TouchableOpacity style={styles.removeImageBtn} onPress={(e) => { e.stopPropagation(); item.setter(null); }}>
+                          <Ionicons name="close-circle" size={16} color="#EF4444" />
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <View style={styles.imagePlaceholder}>
+                        <Ionicons name={i === 0 ? "camera-outline" : "add"} size={20} color="#CBD5E1" />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.colTitle}>Variantes (Opcional)</Text>
+              <View style={styles.variantsSection}>
+                <View style={styles.variantInputRow}>
+                  <TextInput style={[styles.variantInput, { flex: 1 }]} placeholder="Valor" value={newVariantLabel} onChangeText={setNewVariantLabel} />
+                  
+                  <View style={styles.unitSelector}>
+                    <TouchableOpacity 
+                      onPress={() => setVariantUnit('gr')} 
+                      style={[styles.unitBtn, variantUnit === 'gr' && styles.unitBtnActive]}
+                    >
+                      <Text style={[styles.unitBtnText, variantUnit === 'gr' && styles.unitBtnTextActive]}>Gr</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      onPress={() => setVariantUnit('kg')} 
+                      style={[styles.unitBtn, variantUnit === 'kg' && styles.unitBtnActive]}
+                    >
+                      <Text style={[styles.unitBtnText, variantUnit === 'kg' && styles.unitBtnTextActive]}>Kg</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <TextInput style={[styles.variantInput, { flex: 1.2 }]} placeholder="Precio $" value={newVariantPrice} onChangeText={setNewVariantPrice} keyboardType="numeric" />
+                  <TouchableOpacity style={styles.addVariantBtn} onPress={addVariant}><Ionicons name="add" size={20} color="#fff" /></TouchableOpacity>
+                </View>
+                <View style={[styles.variantList, { maxHeight: isDesktop ? 100 : undefined }]}>
+                  {variants.length === 0 ? (
+                    <Text style={[styles.emptyVariantText, { fontSize: 12 }]}>UNIDAD (Sin variantes)</Text>
                   ) : (
-                    <View style={styles.imagePlaceholder}>
-                      <Ionicons name={i === 0 ? "camera-outline" : "add"} size={24} color="#CBD5E1" />
-                      {item.label && <Text style={styles.imageLabelTiny}>{item.label}</Text>}
-                    </View>
+                    variants.map((v, i) => (
+                      <View key={i} style={styles.variantBadge}>
+                        <Text style={styles.variantBadgeText}>{v.label} - ${v.price}</Text>
+                        <TouchableOpacity onPress={() => removeVariant(i)}><Ionicons name="close-circle" size={16} color="#EF4444" /></TouchableOpacity>
+                      </View>
+                    ))
                   )}
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Text style={[styles.colTitle, { marginTop: 32 }]}>Estado y Visibilidad</Text>
-            <View style={styles.inspectorCard}>
-              <View style={styles.toggleRow}>
-                <Text style={styles.toggleText}>Disponibilidad</Text>
-                <Switch
-                  value={disponibilidad}
-                  onValueChange={setDisponibilidad}
-                  trackColor={{ false: '#E2E8F0', true: '#10B981' }}
-                  thumbColor="#fff"
-                  style={Platform.OS === 'web' ? { transform: [{ scale: 0.8 }] } as any : {}}
-                />
-              </View>
-              <View style={[styles.toggleRow, { marginTop: 12 }]}>
-                <Text style={styles.toggleText}>En Promoción</Text>
-                <Switch
-                  value={estadoPromocion}
-                  onValueChange={setEstadoPromocion}
-                  trackColor={{ false: '#E2E8F0', true: '#10B981' }}
-                  thumbColor="#fff"
-                  style={Platform.OS === 'web' ? { transform: [{ scale: 0.8 }] } as any : {}}
-                />
-              </View>
-              <View style={[styles.toggleRow, { marginTop: 12 }]}>
-                <Text style={styles.toggleText}>Receta Médica</Text>
-                <Switch
-                  value={Receta}
-                  onValueChange={setReceta}
-                  trackColor={{ false: '#E2E8F0', true: '#10B981' }}
-                  thumbColor="#fff"
-                  style={Platform.OS === 'web' ? { transform: [{ scale: 0.8 }] } as any : {}}
-                />
+                </View>
               </View>
             </View>
           </View>
 
-          <View style={[styles.col, { flex: isDesktop ? 0.4 : 1, paddingHorizontal: isDesktop ? 40 : 0 }]}>
-            <Text style={styles.colTitle}>Información General</Text>
-            <CustomInput label="Nombre del producto" placeholder="Nombre" value={nombre} onChangeText={setNombre} />
-            <CustomInput label="Descripción" placeholder="Detalles..." value={descripcion} onChangeText={setDescripcion} multiline />
-            
-            <View style={styles.inlineRow}>
-              <View style={{ flex: 1.5 }}><CustomInput label="Precio ($)" placeholder="0.00" value={precio} onChangeText={setPrecio} numeric /></View>
-              <View style={{ flex: 1 }}><CustomInput label="Medida" placeholder="g, kg, ml..." value={medida} onChangeText={setMedida} /></View>
-              <View style={{ flex: 1 }}><CustomInput label="Stock" placeholder="0" value={cantidadCreada} onChangeText={setCantidadCreada} numeric /></View>
+          {/* COL 3: Precios & Clasificación */}
+          <View style={[styles.col, { flex: isDesktop ? 0.33 : 1 }]}>
+            <View style={styles.card}>
+              <Text style={styles.colTitle}>Inventario</Text>
+              <CustomInput label="Precio Base ($)" placeholder="0.00" value={precio} onChangeText={setPrecio} numeric />
+              <CustomInput label="Medida" placeholder="kg, ml, g..." value={medida} onChangeText={setMedida} />
             </View>
-          </View>
 
-          <View style={[styles.col, { flex: isDesktop ? 0.3 : 1 }]}>
-            <Text style={styles.colTitle}>Clasificación</Text>
-            <DropdownRow icon="paw-outline" label="Animal" placeholder="Selecciona..." value={animalSelected} options={animalsList} onSelect={handleAnimalChange} />
-            <DropdownRow icon="grid-outline" label="Categoría" placeholder="Selecciona..." value={categoria} options={displayCategories} onSelect={setCategoria} disabled={!animalSelected} multiple />
-            <DropdownRow icon="shield-outline" label="Marca (Opcional)" placeholder="Selecciona..." value={marca} options={displayBrands} onSelect={setMarca} disabled={!animalSelected} multiple />
+            <View style={styles.card}>
+              <Text style={styles.colTitle}>Clasificación</Text>
+              <DropdownRow icon="paw-outline" label="Animal" placeholder="Animal..." value={animalSelected} options={animalsList} onSelect={handleAnimalChange} multiple />
+              <DropdownRow icon="grid-outline" label="Categoría" placeholder="Categoría..." value={categoria} options={displayCategories} onSelect={setCategoria} disabled={animalSelected.length === 0} multiple />
+              <DropdownRow icon="shield-outline" label="Marca" placeholder="Marca..." value={marca} options={displayBrands} onSelect={setMarca} disabled={animalSelected.length === 0} multiple />
+            </View>
           </View>
 
         </View>
@@ -564,81 +634,70 @@ export default function EditarProductoScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
   header: {
-    height: 80, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 24, borderBottomWidth: 1, borderBottomColor: '#F1F5F9', backgroundColor: '#FFFFFF'
+    height: 70, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: '#F1F5F9', backgroundColor: '#FFFFFF'
   },
-  headerBackBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 20, backgroundColor: '#F8FAFC' },
-  headerSubText: { fontSize: 11, fontWeight: '800', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.5 },
-  headerTitleText: { fontSize: 20, fontWeight: '900', color: '#0F172A' },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  headerDeleteBtn: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#FEF2F2', alignItems: 'center', justifyContent: 'center' },
-  headerSaveBtn: { backgroundColor: '#10B981', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, shadowColor: '#10B981', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 4 },
-  headerSaveText: { fontSize: 14, fontWeight: '800', color: '#fff' },
+  headerBackBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 18, backgroundColor: '#F8FAFC' },
+  headerSubText: { fontSize: 10, fontWeight: '800', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.5 },
+  headerTitleText: { fontSize: 18, fontWeight: '900', color: '#0F172A' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  headerDeleteBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#FEF2F2', alignItems: 'center', justifyContent: 'center' },
+  headerSaveBtn: { backgroundColor: '#10B981', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12 },
+  headerSaveText: { fontSize: 13, fontWeight: '800', color: '#fff' },
 
   container: { flex: 1 },
-  content: { padding: 32 },
-  mainLayout: { gap: 32 },
-  mainLayoutDesktop: { flexDirection: 'row', gap: 0 },
-  col: { gap: 12 },
-  colTitle: { fontSize: 12, fontWeight: '900', color: '#10B981', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 8 },
+  content: { padding: 16 },
+  mainLayout: { gap: 16 },
+  mainLayoutDesktop: { flexDirection: 'row', gap: 16 },
+  col: { flex: 1, gap: 16 },
+  colTitle: { fontSize: 11, fontWeight: '900', color: '#10B981', textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 12 },
 
-  inspectorCard: { padding: 20, backgroundColor: '#F8FAFC', borderRadius: 16, borderWidth: 1, borderColor: '#F1F5F9' },
+  card: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.02, shadowRadius: 8, elevation: 2, borderWidth: 1, borderColor: '#F1F5F9' },
+  
+  inspectorCard: { padding: 0, backgroundColor: 'transparent' },
   toggleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  toggleText: { fontSize: 14, fontWeight: '700', color: '#475569' },
+  toggleText: { fontSize: 13, fontWeight: '700', color: '#475569' },
 
-  mediaRow: { flexDirection: 'row', gap: 12 },
+  mediaRow: { flexDirection: 'row', gap: 10 },
   imageBox: { 
-    flex: 1, height: 110, backgroundColor: '#FFFFFF', borderRadius: 12, 
+    flex: 1, height: 80, backgroundColor: '#FFFFFF', borderRadius: 12, 
     borderWidth: 1.5, borderColor: '#10B981', overflow: 'hidden' 
   },
-  imagePlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6 },
-  imageLabelTiny: { fontSize: 11, fontWeight: '800', color: '#10B981' },
+  imagePlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  imageLabelTiny: { fontSize: 10, fontWeight: '800', color: '#10B981' },
   imageFull: { width: '100%', height: '100%' },
+  removeImageBtn: { position: 'absolute', top: 2, right: 2, backgroundColor: '#fff', borderRadius: 10 },
 
-  inputGroup: { marginBottom: 20 },
-  inputLabel: { fontSize: 14, fontWeight: '800', color: '#0F172A', marginBottom: 10, marginLeft: 2 },
+  inputGroup: { marginBottom: 12 },
+  inputLabel: { fontSize: 13, fontWeight: '800', color: '#0F172A', marginBottom: 6, marginLeft: 2 },
   input: {
-    backgroundColor: '#FFFFFF', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14,
-    fontSize: 15, color: '#0F172A', borderWidth: 1.5, borderColor: '#F1F5F9', outlineWidth: 0,
+    backgroundColor: '#FFFFFF', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10,
+    fontSize: 14, color: '#0F172A', borderWidth: 1.5, borderColor: '#F1F5F9', outlineWidth: 0,
     fontWeight: '600'
   } as any,
   inputFocused: { borderColor: '#10B981', backgroundColor: '#fff' },
-  inputMultiline: { height: 120, textAlignVertical: 'top' },
-  inlineRow: { flexDirection: 'row', gap: 20 },
+  inputMultiline: { height: 70, textAlignVertical: 'top' },
+  inlineRow: { flexDirection: 'row', gap: 12 },
 
-  dropdownWrap: { marginBottom: 20 },
+  dropdownWrap: { marginBottom: 12 },
   dropdown: { 
     flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF',
-    borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14,
-    borderWidth: 1.5, borderColor: '#F1F5F9', gap: 12 
+    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10,
+    borderWidth: 1.5, borderColor: '#F1F5F9', gap: 10 
   },
   dropdownOpen: { borderColor: '#10B981' },
-  dropdownText: { flex: 1, fontSize: 15, color: '#94A3B8', fontWeight: '600' },
+  dropdownText: { flex: 1, fontSize: 14, color: '#94A3B8', fontWeight: '600' },
   dropdownTextSelected: { color: '#0F172A' },
   dropdownOptions: {
-    backgroundColor: '#fff', borderRadius: 16, marginTop: 8,
-    borderWidth: 1, borderColor: '#F1F5F9', padding: 8,
+    backgroundColor: '#fff', borderRadius: 12, marginTop: 4,
+    borderWidth: 1, borderColor: '#F1F5F9', padding: 4,
     shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 10,
     zIndex: 1000
   },
-  dropdownOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderRadius: 10 },
-  dropdownOptionText: { fontSize: 14, color: '#475569', fontWeight: '600' },
+  dropdownOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 10, borderRadius: 8 },
+  dropdownOptionText: { fontSize: 13, color: '#475569', fontWeight: '600' },
   dropdownOptionActive: { backgroundColor: '#F0FDF4', color: '#10B981', fontWeight: '800' },
 
-  variantContainer: { },
-  colorInputRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
-  colorTextInput: { 
-    flex: 1, backgroundColor: '#FFFFFF', borderRadius: 12, paddingHorizontal: 16, 
-    height: 48, fontSize: 14, borderWidth: 1.5, borderColor: '#F1F5F9', outlineWidth: 0,
-    fontWeight: '600'
-  } as any,
-  addColorTinyBtn: { width: 48, height: 48, backgroundColor: '#10B981', borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  tagsContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  tag: { 
-    flexDirection: 'row', alignItems: 'center', gap: 8, 
-    backgroundColor: '#F0FDF4', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8,
-    borderWidth: 1, borderColor: '#DCFCE7'
-  },
   tagText: { fontSize: 13, fontWeight: '700', color: '#10B981' },
 
   toast: {
@@ -661,4 +720,25 @@ const styles = StyleSheet.create({
   modalCancelText: { fontSize: 14, fontWeight: '700', color: '#475569' },
   modalConfirmBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 12, backgroundColor: '#EF4444' },
   modalConfirmText: { fontSize: 14, fontWeight: '700', color: '#fff' },
+
+  variantsSection: { backgroundColor: '#F8FAFC', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#F1F5F9' },
+  variantInputRow: { flexDirection: 'row', gap: 6, marginBottom: 12, alignItems: 'center', flexWrap: 'wrap' },
+  variantInput: { 
+    backgroundColor: '#fff', borderRadius: 8, paddingHorizontal: 10, height: 36, 
+    borderWidth: 1, borderColor: '#E2E8F0', fontSize: 13, fontWeight: '600',
+    minWidth: 60
+  },
+  
+  unitSelector: { flexDirection: 'row', backgroundColor: '#E2E8F0', borderRadius: 8, padding: 2, height: 36 },
+  unitBtn: { paddingHorizontal: 8, justifyContent: 'center', borderRadius: 6 },
+  unitBtnActive: { backgroundColor: '#fff' },
+  unitBtnText: { fontSize: 11, fontWeight: '700', color: '#64748B' },
+  unitBtnTextActive: { color: '#10B981' },
+
+  addVariantBtn: { width: 36, height: 36, backgroundColor: '#F47321', borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  variantList: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, overflow: 'hidden' },
+  variantBadge: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#F0FDF4', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: '#DCFCE7' },
+  variantBadgeText: { fontSize: 13, fontWeight: '700', color: '#10B981' },
+  emptyVariantBadge: { backgroundColor: '#F0FDF4', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: '#DCFCE7' },
+  emptyVariantText: { fontSize: 13, fontWeight: '800', color: '#10B981' },
 });

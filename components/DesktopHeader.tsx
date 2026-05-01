@@ -6,7 +6,7 @@ import NotifyClientsModal from './NotifyClientsModal';
 import ShopScheduleModal from './ShopScheduleModal';
 
 const PAGE_TITLES: Record<string, string> = {
-  hogar: 'Hogar',
+  hogar: 'Dashboard',
   productos: 'Productos',
   promocion: 'Promociones',
   ordenes: 'Órdenes',
@@ -37,6 +37,7 @@ export default function DesktopHeader({
   const [notifyModalOpen, setNotifyModalOpen] = React.useState(false);
   const [scheduleModalOpen, setScheduleModalOpen] = React.useState(false);
   const [unreadCount, setUnreadCount] = React.useState(0);
+  const [pendingOrdersCount, setPendingOrdersCount] = React.useState(0);
 
   React.useEffect(() => {
     const { db } = require('../lib/firebase');
@@ -47,7 +48,18 @@ export default function DesktopHeader({
       setUnreadCount(snapshot.size);
     });
 
-    return () => unsubscribe();
+    const qOrders = query(
+      collection(db, 'Orden'), 
+      where('estado', 'in', ['pendiente', 'Pendiente', 'procesando', 'en proceso', 'En proceso', 'en camino'])
+    );
+    const unsubscribeOrders = onSnapshot(qOrders, (snapshot: any) => {
+      setPendingOrdersCount(snapshot.size);
+    });
+
+    return () => {
+      unsubscribe();
+      unsubscribeOrders();
+    };
   }, []);
 
   return (
@@ -63,15 +75,22 @@ export default function DesktopHeader({
             />
           </TouchableOpacity>
           <View>
-            <Text style={styles.title}>{title}</Text>
-            <Text style={styles.subtitle}>Panel de administración</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={styles.title}>{title}</Text>
+              {currentPage === 'ordenes' && pendingOrdersCount > 0 && (
+                <View style={styles.headerBadge}>
+                  <Text style={styles.headerBadgeText}>{pendingOrdersCount}</Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.subtitle}>Panel de gestión administrativa</Text>
           </View>
         </View>
 
         <View style={styles.right}>
           {/* Notification Action */}
           <TouchableOpacity style={styles.notifyActionBtn} activeOpacity={0.7} onPress={() => setNotifyModalOpen(true)}>
-            <Ionicons name="megaphone-outline" size={18} color="#6366F1" />
+            <Ionicons name="megaphone-outline" size={18} color="#63348C" />
             <Text style={styles.notifyActionText}>Notificar clientes</Text>
           </TouchableOpacity>
 
@@ -99,17 +118,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 24,
+    height: 68,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
+    borderBottomColor: '#F1F5F9',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.02,
+    shadowRadius: 10,
     elevation: 2,
   },
-  left: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  left: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   menuBtn: {
     width: 38,
     height: 38,
@@ -118,24 +137,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  title: { fontSize: 22, fontWeight: '700', color: '#0F172A' },
-  subtitle: { fontSize: 12, color: '#94A3B8', marginTop: 2 },
-  right: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  title: { fontSize: 20, fontWeight: '900', color: '#0F172A', letterSpacing: -0.5 },
+  subtitle: { fontSize: 12, color: '#94A3B8', fontWeight: '600', marginTop: 1 },
+  right: { flexDirection: 'row', alignItems: 'center', gap: 20 },
   notifyActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EEF2FF',
-    borderRadius: 12,
+    backgroundColor: '#F5F3FF',
+    borderRadius: 14,
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 8,
     gap: 8,
     borderWidth: 1,
-    borderColor: '#E0E7FF',
+    borderColor: '#E9E7FF',
   },
   notifyActionText: {
-    color: '#6366F1',
+    color: '#63348C',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
+    letterSpacing: -0.2,
   },
   iconBtn: {
     width: 52,
@@ -163,5 +183,19 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 10,
     fontWeight: '800',
+  },
+  headerBadge: {
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    borderRadius: 10,
+    minWidth: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerBadgeText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '900',
   },
 });

@@ -17,6 +17,8 @@ import { auth, db } from '../../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import ShopScheduleModal from '../../components/ShopScheduleModal';
+import NotifyClientsModal from '../../components/NotifyClientsModal';
+
 
 
 export default function CuentaScreen() {
@@ -26,6 +28,7 @@ export default function CuentaScreen() {
   const [userData, setUserData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  const [notifyModalOpen, setNotifyModalOpen] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -68,13 +71,22 @@ export default function CuentaScreen() {
             <Text style={styles.pageTitle}>Mi Espacio</Text>
             <Text style={styles.pageSubtitle}>Mi perfil de admin</Text>
           </View>
-          <TouchableOpacity 
-            style={styles.headerIconBtn} 
-            onPress={() => setScheduleModalOpen(true)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="time-outline" size={28} color="#0F172A" />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <TouchableOpacity 
+              style={styles.headerIconBtn} 
+              onPress={() => setNotifyModalOpen(true)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="megaphone-outline" size={26} color="#10B981" />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.headerIconBtn} 
+              onPress={() => setScheduleModalOpen(true)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="time-outline" size={28} color="#0F172A" />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -179,7 +191,7 @@ export default function CuentaScreen() {
                 onPress={() => router.push('/publicidad')}
               >
                 <View style={[styles.iconWrapper, { backgroundColor: '#F5F3FF' }]}>
-                  <Ionicons name="megaphone-outline" size={24} color="#7C3AED" />
+                  <Ionicons name="megaphone-outline" size={24} color="#63348C" />
                 </View>
                 <Text style={styles.itemTitle}>Publicidad</Text>
                 <Text style={styles.itemDesc}>Gestión de banners y anuncios.</Text>
@@ -195,7 +207,7 @@ export default function CuentaScreen() {
                 onPress={() => router.push('/agenda')}
               >
                 <View style={[styles.iconWrapper, { backgroundColor: '#F0F9FF' }]}>
-                  <Ionicons name="calendar-outline" size={24} color="#0EA5E9" />
+                  <Ionicons name="calendar-outline" size={24} color="#63348C" />
                 </View>
                 <Text style={styles.itemTitle}>Agenda</Text>
                 <Text style={styles.itemDesc}>Gestiona tus citas del día y horarios programados.</Text>
@@ -217,6 +229,7 @@ export default function CuentaScreen() {
         </SafeAreaView>
       )}
       <ShopScheduleModal visible={scheduleModalOpen} onClose={() => setScheduleModalOpen(false)} />
+      <NotifyClientsModal visible={notifyModalOpen} onClose={() => setNotifyModalOpen(false)} />
     </View>
   );
 }
@@ -228,31 +241,31 @@ const styles = StyleSheet.create({
   contentDesktop: { paddingHorizontal: 40, paddingTop: 32, paddingBottom: 60, width: '100%' },
 
   headerArea: {
-    marginBottom: 40,
+    marginBottom: 24,
   },
   titleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     width: '100%',
   },
   headerIconBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },
   pageTitle: {
-    fontSize: 32,
+    fontSize: 22,
     fontWeight: '900',
     color: '#0F172A',
-    letterSpacing: -1,
-    marginBottom: 8,
+    letterSpacing: -0.5,
+    marginBottom: 4,
   },
   pageSubtitle: {
-    fontSize: 16,
+    fontSize: 12,
     color: '#64748B',
     fontWeight: '500',
   },
@@ -283,8 +296,8 @@ const styles = StyleSheet.create({
   /* Left Panel */
   profileCard: {
     alignItems: 'center',
-    paddingVertical: 48,
-    paddingHorizontal: 24,
+    paddingVertical: 32,
+    paddingHorizontal: 20,
   },
   profileCardDesktop: {
     width: 300,
@@ -294,19 +307,19 @@ const styles = StyleSheet.create({
 
   avatarGlowContainer: {
     position: 'relative',
-    marginBottom: 28,
+    marginBottom: 20,
   },
   avatarCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     backgroundColor: '#0F172A',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 6 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
-    shadowRadius: 12,
+    shadowRadius: 10,
   },
   statusDot: {
     position: 'absolute',
@@ -315,36 +328,36 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: '#22C55E',
+    backgroundColor: '#63348C',
     borderWidth: 3,
     borderColor: '#ffffff',
   },
 
   profileName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '800',
     color: '#0F172A',
-    marginBottom: 4,
+    marginBottom: 2,
     textAlign: 'center',
   },
   profileEmail: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#64748B',
-    marginBottom: 14,
+    marginBottom: 12,
   },
   roleBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FEF9C3',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 14,
     gap: 6,
-    marginBottom: 40,
+    marginBottom: 24,
   },
   roleText: {
     color: '#CA8A04',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
   },
 
@@ -381,29 +394,29 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: '100%',
     alignItems: 'flex-start',
-    padding: 24,
+    padding: 20,
   },
   gridItemDesktop: {
     minWidth: '46%',
   },
   iconWrapper: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
+    width: 40,
+    height: 40,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   itemTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
     color: '#0F172A',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   itemDesc: {
-    fontSize: 12,
+    fontSize: 10.5,
     color: '#64748B',
-    lineHeight: 18,
+    lineHeight: 16,
     fontWeight: '500',
   },
 

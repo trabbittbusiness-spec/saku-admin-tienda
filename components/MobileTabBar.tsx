@@ -9,6 +9,9 @@ import {
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { db } from '../lib/firebase';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
 
 const TABS = [
   { name: 'hogar', label: 'Hogar', icon: 'home' as const },
@@ -22,6 +25,22 @@ const TABS = [
 export default function MobileTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const activeIndex = state.index;
+  const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
+
+  useEffect(() => {
+    const q = query(
+      collection(db, 'Orden'), 
+      where('estado', 'in', ['pendiente', 'Pendiente', 'procesando', 'en proceso', 'En proceso', 'en camino'])
+    );
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setPendingOrdersCount(snapshot.size);
+    }, (error) => {
+      console.error("Error listening to pending orders:", error);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom + 4 }]}>
@@ -41,6 +60,11 @@ export default function MobileTabBar({ state, navigation }: BottomTabBarProps) {
                 size={22}
                 color={isActive ? '#fff' : '#94A3B8'}
               />
+              {tab.name === 'ordenes' && pendingOrdersCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{pendingOrdersCount}</Text>
+                </View>
+              )}
             </View>
             <Text style={[styles.label, isActive && styles.labelActive]}>
               {tab.label}
@@ -80,7 +104,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   iconWrapperActive: {
-    backgroundColor: '#6366F1',
+    backgroundColor: '#63348C',
   },
   label: {
     fontSize: 10,
@@ -88,7 +112,26 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   labelActive: {
-    color: '#6366F1',
+    color: '#FFFFFF',
     fontWeight: '700',
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#EF4444',
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: '#0F172A',
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '900',
   },
 });

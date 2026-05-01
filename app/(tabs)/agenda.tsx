@@ -13,12 +13,14 @@ import {
   Alert,
   Dimensions,
   Linking,
+  Switch,
+  TextInput,
 } from 'react-native';
 import { useNavigation, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { collection, query, onSnapshot, orderBy, where, Timestamp, getDocs, updateDoc, doc, addDoc, getDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../../lib/firebase';
+import { db, auth } from '../../lib/firebase';
 
 export default function AgendaScreen() {
   const { width } = useWindowDimensions();
@@ -30,12 +32,22 @@ export default function AgendaScreen() {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [statusFilter, setStatusFilter] = useState('Pendientes');
+  const [miniCalMonth, setMiniCalMonth] = useState(new Date());
   
   // Agenda Configuration
   const [customHours, setCustomHours] = useState<string[]>(['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00']);
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [newHour, setNewHour] = useState(9);
   const [newMinute, setNewMinute] = useState(0);
+  
+  // Advanced Config
+  const [agendaActiva, setAgendaActiva] = useState(true);
+  const [mensajePublico, setMensajePublico] = useState('');
+  const [diasLibres, setDiasLibres] = useState<number[]>([0]); // 0=Dom
+  const [fechasBloqueadas, setFechasBloqueadas] = useState<string[]>([]);
+  const [showExcCal, setShowExcCal] = useState(false);
+  const [excMonth, setExcMonth] = useState(new Date());
+  const [showAddHora, setShowAddHora] = useState(false);
   
   const [selectedCita, setSelectedCita] = useState<any>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
@@ -84,6 +96,20 @@ export default function AgendaScreen() {
             estado: 'completado',
             creador: userRef // Reference to the user in the store
           });
+
+          // Send Push Notification
+          await addDoc(collection(db, 'ff_user_push_notifications'), {
+            initial_page_name: 'orders', // Or a more relevant page if available
+            notification_text: `¡Tu servicio de ${servicioNombre} ha sido completado con éxito!`,
+            notification_title: '✅ Servicio Completado',
+            num_sent: 1,
+            parameter_data: JSON.stringify({ agendaId: id }),
+            sender: doc(db, 'users', auth.currentUser?.uid || 'admin'),
+            status: 'pending',
+            app_target: 'tienda',
+            timestamp: serverTimestamp(),
+            user_refs: `users/${usuarioId}`
+          });
         }
       }
 
@@ -102,10 +128,13 @@ export default function AgendaScreen() {
       if (!snapshot.empty) {
         const data = snapshot.docs[0].data();
         if (data.customHours) {
-          // Sort hours chronologically
           const sorted = [...data.customHours].sort((a, b) => a.localeCompare(b));
           setCustomHours(sorted);
         }
+        if (data.agendaActiva !== undefined) setAgendaActiva(data.agendaActiva);
+        if (data.mensajePublico !== undefined) setMensajePublico(data.mensajePublico);
+        if (data.diasLibres !== undefined) setDiasLibres(data.diasLibres);
+        if (data.fechasBloqueadas !== undefined) setFechasBloqueadas(data.fechasBloqueadas);
       }
     });
     return () => unsubscribe();
@@ -120,6 +149,10 @@ export default function AgendaScreen() {
       const configData = { 
         tipo: 'agenda', 
         customHours: sortedList,
+        agendaActiva,
+        mensajePublico,
+        diasLibres,
+        fechasBloqueadas,
         updatedAt: Timestamp.now() 
       };
       
@@ -206,6 +239,167 @@ export default function AgendaScreen() {
   });
 
   const renderDesktopGrid = () => {
+    const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const calYear = miniCalMonth.getFullYear();
+    const calMonth = miniCalMonth.getMonth();
+    const firstDow = new Date(calYear, calMonth, 1).getDay();
+    const offset = firstDow === 0 ? 6 : firstDow - 1;
+    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+    const calDays: (number | null)[] = [
+      ...Array(offset).fill(null),
+      ...Array.from({ length: daysInMonth }, (_, i) => i + 1)
+    ];
+    const weekStart = weekDays[0];
+    const weekEnd = weekDays[6];
+    const semanaLabel = `Semana del ${weekDays[0].getDate()} de ${monthNames[weekDays[0].getMonth()].toLowerCase()}`;
+
+    return (
+      <View style={styles.agendaOuter}>
+
+        {/* ── LEFT SIDEBAR ── */}
+        <View style={styles.agendaSidebar}>
+          <Text style={styles.sidebarTitle}>Agenda</Text>
+
+          {/* Mini Calendar */}
+          <View style={styles.miniCal}>
+            <View style={styles.miniCalHeader}>
+              <TouchableOpacity onPress={() => { const d = new Date(miniCalMonth); d.setMonth(d.getMonth()-1); setMiniCalMonth(d); }}>
+                <Ionicons name="chevron-back" size={16} color="#475569" />
+              </TouchableOpacity>
+              <Text style={styles.miniCalTitle}>{monthNames[calMonth]} {calYear}</Text>
+              <TouchableOpacity onPress={() => { const d = new Date(miniCalMonth); d.setMonth(d.getMonth()+1); setMiniCalMonth(d); }}>
+                <Ionicons name="chevron-forward" size={16} color="#475569" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.miniCalGrid}>
+              {['L','M','M','J','V','S','D'].map((wd, i) => (
+                <Text key={i} style={styles.miniCalDow}>{wd}</Text>
+              ))}
+              {calDays.map((day, i) => {
+                if (!day) return <View key={`e${i}`} style={styles.miniCalDay} />;
+                const d = new Date(calYear, calMonth, day);
+                const isToday = d.toDateString() === new Date().toDateString();
+                const inWeek = d >= weekStart && d <= weekEnd;
+                const dayCitas = citas.filter(c => { const cd = c.fecha?.toDate ? c.fecha.toDate() : new Date(c.fecha); return cd.toDateString() === d.toDateString(); });
+                const hasPendientes = dayCitas.some(c => c.estado !== 'Completadas');
+                const hasCompletadas = dayCitas.some(c => c.estado === 'Completadas');
+                return (
+                  <TouchableOpacity key={i} style={[styles.miniCalDay, isToday && styles.miniCalDayToday, inWeek && !isToday && styles.miniCalDayInWeek]} onPress={() => { setSelectedDate(d); setMiniCalMonth(d); }}>
+                    <Text style={[styles.miniCalDayTxt, isToday && styles.miniCalDayTxtToday, inWeek && !isToday && styles.miniCalDayTxtInWeek]}>{day}</Text>
+                    {(!isToday) && (hasPendientes || hasCompletadas) && (
+                      <View style={{ flexDirection: 'row', gap: 2, marginTop: 1 }}>
+                        {hasPendientes && <View style={[styles.miniCalDot, { backgroundColor: '#63348C' }]} />}
+                        {hasCompletadas && <View style={[styles.miniCalDot, { backgroundColor: '#10B981' }]} />}
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Estado */}
+          <Text style={styles.sidebarSectionLabel}>ESTADO</Text>
+          {[{label:'Pendientes',color:'#63348C'},{label:'Completadas',color:'#10B981'},{label:'Todas',color:'#94A3B8'}].map(({label, color}) => (
+            <TouchableOpacity key={label} style={[styles.statusOption, statusFilter===label && styles.statusOptionActive]} onPress={() => setStatusFilter(label)}>
+              <View style={[styles.statusDotLeft, {backgroundColor: color}]} />
+              <Text style={[styles.statusOptionTxt, statusFilter===label && styles.statusOptionTxtActive]}>{label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* ── RIGHT PANEL ── */}
+        <View style={styles.agendaRight}>
+          {/* Header */}
+          <View style={styles.rpHeader}>
+            <View>
+              <Text style={styles.rpTitle}>{semanaLabel}</Text>
+              <Text style={styles.rpSubtitle}>{filteredCitas.length} citas filtradas</Text>
+            </View>
+            <View style={styles.rpBtns}>
+              <View style={styles.rpWeekNav}>
+                <TouchableOpacity style={styles.rpNavBtn} onPress={() => { const d = new Date(selectedDate); d.setDate(d.getDate()-7); setSelectedDate(d); }}>
+                  <Ionicons name="chevron-back" size={18} color="#0F172A" />
+                </TouchableOpacity>
+                <Text style={styles.rpNavLabel}>Semana</Text>
+                <TouchableOpacity style={styles.rpNavBtn} onPress={() => { const d = new Date(selectedDate); d.setDate(d.getDate()+7); setSelectedDate(d); }}>
+                  <Ionicons name="chevron-forward" size={18} color="#0F172A" />
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity style={styles.rpSecBtn} onPress={() => setConfigModalOpen(true)}>
+                <Ionicons name="settings-outline" size={16} color="#475569" />
+                <Text style={styles.rpSecBtnTxt}>Horarios</Text>
+              </TouchableOpacity>
+              {/* <TouchableOpacity style={styles.rpPrimBtn}>
+                <Ionicons name="add" size={18} color="#fff" />
+                <Text style={styles.rpPrimBtnTxt}>Nueva Cita</Text>
+              </TouchableOpacity> */}
+            </View>
+          </View>
+
+          {/* Grid */}
+          <View style={styles.rpGridWrap}>
+            <View style={styles.rpGridHeader}>
+              <View style={styles.rpHourCol} />
+              {weekDays.map((d, i) => {
+                const isToday = d.toDateString() === new Date().toDateString();
+                return (
+                  <View key={i} style={styles.rpDayHeader}>
+                    <Text style={[styles.rpDayName, isToday && {color:'#63348C'}]}>
+                      {d.toLocaleDateString('es-ES',{weekday:'short'}).toUpperCase()}
+                    </Text>
+                    <View style={[styles.rpDayCircle, isToday && styles.rpDayCircleToday]}>
+                      <Text style={[styles.rpDayNum, isToday && styles.rpDayNumToday]}>{d.getDate()}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false} style={{flex:1}}>
+              <View>
+                {timeSlots.map(slot => (
+                  <View key={slot.label} style={styles.rpRow}>
+                    <View style={styles.rpHourCol}>
+                      <Text style={styles.rpHourTxt}>
+                        {slot.h===0?'12':slot.h>12?slot.h-12:slot.h}:{slot.m<10?`0${slot.m}`:slot.m} {slot.h>=12?'PM':'AM'}
+                      </Text>
+                    </View>
+                    {weekDays.map((day, i) => {
+                      const appts = filteredCitas.filter(c => {
+                        const cd = c.fecha instanceof Timestamp ? c.fecha.toDate() : new Date(c.fecha);
+                        return cd.toDateString()===day.toDateString() && cd.getHours()===slot.h && cd.getMinutes()===slot.m;
+                      });
+                      const isToday = day.toDateString()===new Date().toDateString();
+                      return (
+                        <View key={i} style={[styles.rpCell, isToday && styles.rpCellToday]}>
+                          {appts.map(cita => {
+                            const col = cita.estado==='Completadas' ? '#10B981' : (cita.color||'#63348C');
+                            return (
+                              <TouchableOpacity key={cita.id} activeOpacity={0.85}
+                                onPress={() => {setSelectedCita(cita); setDetailModalOpen(true);}}
+                                style={[styles.rpCitaCard, {backgroundColor: col}]}>
+                                <Text style={styles.rpCitaName} numberOfLines={1}>{cita.clienteNombre||'Cliente'}</Text>
+                                <View style={{flexDirection:'row', alignItems:'center', gap:4, marginTop:2}}>
+                                  <Text style={styles.rpCitaService} numberOfLines={1}>{cita.servicioNombre||'Servicio'}</Text>
+                                  {cita.equipo && <View style={styles.rpEquipoBadge}><Text style={styles.rpEquipoTxt}>EQUIPO</Text></View>}
+                                </View>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      );
+                    })}
+                  </View>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  const renderDesktopGrid_UNUSED = () => {
     return (
       <View style={styles.canvasContainer}>
         <View style={styles.topControlBar}>
@@ -261,7 +455,7 @@ export default function AgendaScreen() {
               const isToday = d.toDateString() === new Date().toDateString();
               return (
                 <View key={i} style={styles.canvasDayHeader}>
-                  <Text style={[styles.canvasDayName, isToday && { color: '#6366F1' }]}>
+                  <Text style={[styles.canvasDayName, isToday && { color: '#63348C' }]}>
                     {d.toLocaleDateString('es-ES', { weekday: 'long' }).toUpperCase()}
                   </Text>
                   <Text style={[styles.canvasDayNum, isToday && styles.canvasDayNumToday]}>{d.getDate()}</Text>
@@ -297,7 +491,7 @@ export default function AgendaScreen() {
                               setSelectedCita(cita);
                               setDetailModalOpen(true);
                             }}
-                            style={[styles.canvasCitaCard, { borderLeftColor: cita.estado === 'Completadas' ? '#10B981' : (cita.color || '#6366F1') }]}
+                            style={[styles.canvasCitaCard, { borderLeftColor: cita.estado === 'Completadas' ? '#63348C' : (cita.color || '#63348C') }]}
                           >
                             <Text style={styles.citaCardTime}>{formatTime(cita.fecha)}</Text>
                             <Text style={styles.citaCardClient} numberOfLines={1}>{cita.clienteNombre || 'Usuario'}</Text>
@@ -359,7 +553,7 @@ export default function AgendaScreen() {
                 style={[styles.mobileFilterChip, statusFilter === f && styles.mobileFilterChipActive]}
                 onPress={() => setStatusFilter(f)}
               >
-                <View style={[styles.mobileStatusDot, { backgroundColor: f === 'Pendientes' ? '#6366F1' : f === 'Completadas' ? '#10B981' : '#94A3B8' }]} />
+                <View style={[styles.mobileStatusDot, { backgroundColor: f === 'Pendientes' ? '#63348C' : f === 'Completadas' ? '#63348C' : '#94A3B8' }]} />
                 <Text style={[styles.mobileFilterChipText, statusFilter === f && styles.mobileFilterChipTextActive]}>{f}</Text>
               </TouchableOpacity>
             ))}
@@ -373,7 +567,7 @@ export default function AgendaScreen() {
             const isToday = d.toDateString() === new Date().toDateString();
             return (
               <View key={i} style={styles.mobileDayColHeader}>
-                <Text style={[styles.mobileDayName, isToday && { color: '#6366F1' }]}>
+                <Text style={[styles.mobileDayName, isToday && { color: '#63348C' }]}>
                   {d.toLocaleDateString('es-ES', { weekday: 'short' }).toUpperCase()}
                 </Text>
                 <View style={[styles.mobileDayCircle, isToday && styles.mobileDayCircleToday]}>
@@ -411,7 +605,7 @@ export default function AgendaScreen() {
                             setDetailModalOpen(true);
                           }}
                           key={cita.id} 
-                          style={[styles.mobileCitaCard, { backgroundColor: cita.estado === 'Completadas' ? '#10B98120' : `${cita.color || '#6366F1'}20`, borderLeftColor: cita.estado === 'Completadas' ? '#10B981' : (cita.color || '#6366F1') }]}
+                          style={[styles.mobileCitaCard, { backgroundColor: cita.estado === 'Completadas' ? '#63348C20' : `${cita.color || '#63348C'}20`, borderLeftColor: cita.estado === 'Completadas' ? '#63348C' : (cita.color || '#63348C') }]}
                         >
                           <Text style={styles.mobileCitaTime}>{formatTime(cita.fecha)}</Text>
                           <Text style={styles.mobileCitaClient} numberOfLines={1}>{cita.clienteNombre || 'User'}</Text>
@@ -439,134 +633,275 @@ export default function AgendaScreen() {
     <Modal
       visible={configModalOpen}
       transparent
-      animationType="fade"
+      animationType="slide"
       onRequestClose={() => setConfigModalOpen(false)}
     >
-      <View style={styles.premiumOverlay}>
-        <View style={[styles.premiumModal, isDesktop && styles.premiumModalWide]}>
-          <View style={styles.premiumHeader}>
-            <View>
-              <Text style={styles.premiumModalTitle}>Personalizar Agenda</Text>
-              <Text style={styles.premiumModalSubtitle}>Define tus horarios disponibles uno por uno</Text>
-            </View>
-            <TouchableOpacity onPress={() => setConfigModalOpen(false)} style={styles.premiumCloseBtn}>
-              <Ionicons name="close" size={22} color="#64748B" />
-            </TouchableOpacity>
-          </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F1F5F9' }}>
+          <TouchableOpacity onPress={() => setConfigModalOpen(false)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Ionicons name="chevron-back" size={20} color="#64748B" />
+            <Text style={{ fontSize: 14, fontWeight: '700', color: '#64748B' }}>Volver</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={{ backgroundColor: '#10B981', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }} onPress={() => { saveConfig(customHours); setConfigModalOpen(false); }}>
+            <Ionicons name="save-outline" size={16} color="#fff" />
+            <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>Guardar Cambios</Text>
+          </TouchableOpacity>
+        </View>
 
-          <View style={[styles.premiumBody, isDesktop && styles.premiumBodyDesktop]}>
-            {/* Column 1: Time Selector Grid */}
-            <View style={styles.gridSelectorColumn}>
-              <Text style={styles.columnLabel}>1. Selecciona la Hora</Text>
-              <View style={styles.hourGridContainer}>
-                {Array.from({ length: 24 }).map((_, h) => {
-                  const displayH = h === 0 ? 12 : h > 12 ? h - 12 : h;
-                  const ampm = h >= 12 ? 'PM' : 'AM';
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24 }}>
+          <View style={{ flexDirection: isDesktop ? 'row' : 'column', gap: 24, maxWidth: 1200, alignSelf: 'center', width: '100%', alignItems: isDesktop ? 'stretch' : 'flex-start' }}>
+            
+            {/* LEFT COLUMN */}
+            <View style={{ flex: 1, backgroundColor: '#fff', borderRadius: 16, padding: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, borderWidth: 1, borderColor: '#F1F5F9' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 32 }}>
+                <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: '#63348C', alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="calendar" size={22} color="#fff" />
+                </View>
+                <View>
+                  <Text style={{ fontSize: 18, fontWeight: '900', color: '#0F172A' }}>Configuración</Text>
+                  <Text style={{ fontSize: 12, color: '#94A3B8' }}>Panel de Control</Text>
+                </View>
+              </View>
+
+              <Text style={styles.sidebarSectionLabel}>ESTADO DE LA AGENDA</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 12, backgroundColor: agendaActiva ? '#ECFDF5' : '#F1F5F9', borderWidth: 1, borderColor: agendaActiva ? '#A7F3D0' : '#E2E8F0', marginBottom: 24 }}>
+                <View>
+                  <Text style={{ fontSize: 14, fontWeight: '800', color: agendaActiva ? '#065F46' : '#64748B' }}>{agendaActiva ? 'Activa' : 'Inactiva'}</Text>
+                  <Text style={{ fontSize: 12, color: agendaActiva ? '#10B981' : '#94A3B8', marginTop: 2 }}>{agendaActiva ? 'Visible a clientes' : 'Oculta a clientes'}</Text>
+                </View>
+                <Switch 
+                  value={agendaActiva} 
+                  onValueChange={setAgendaActiva}
+                  trackColor={{ false: "#CBD5E1", true: "#10B981" }}
+                  thumbColor="#fff"
+                />
+              </View>
+
+              <Text style={styles.sidebarSectionLabel}>MENSAJE PÚBLICO</Text>
+              <TextInput 
+                style={{ backgroundColor: '#F8FAFC', borderRadius: 12, padding: 16, fontSize: 14, color: '#0F172A', minHeight: 80, marginBottom: 24, textAlignVertical: 'top' } as any}
+                placeholder="Ej. 'Cerrado por vacaciones hasta el 15 de enero'"
+                placeholderTextColor="#94A3B8"
+                multiline
+                value={mensajePublico}
+                onChangeText={setMensajePublico}
+              />
+
+              <Text style={styles.sidebarSectionLabel}>DÍAS LIBRES (RECURRENTE)</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                {['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'].map((d, idx) => {
+                  const isLibre = diasLibres.includes(idx);
                   return (
                     <TouchableOpacity 
-                      key={h} 
-                      style={[styles.gridHourBtn, newHour === h && styles.gridHourBtnActive]}
-                      onPress={() => setNewHour(h)}
+                      key={d} 
+                      style={{ width: '30%', paddingVertical: 10, alignItems: 'center', borderRadius: 8, borderWidth: 1, borderColor: isLibre ? '#FECACA' : '#E2E8F0', backgroundColor: isLibre ? '#FEF2F2' : '#fff' }}
+                      onPress={() => {
+                        if (isLibre) setDiasLibres(diasLibres.filter(x => x !== idx));
+                        else setDiasLibres([...diasLibres, idx]);
+                      }}
                     >
-                      <Text style={[styles.gridHourText, newHour === h && styles.gridHourTextActive]}>
-                        {displayH} {ampm}
-                      </Text>
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: isLibre ? '#EF4444' : '#64748B' }}>{d}</Text>
                     </TouchableOpacity>
                   );
                 })}
               </View>
-
-              <Text style={[styles.columnLabel, { marginTop: 24 }]}>2. Selecciona los Minutos</Text>
-              <View style={styles.minuteRow}>
-                {[0, 15, 30, 45].map(m => (
-                  <TouchableOpacity 
-                    key={m} 
-                    style={[styles.gridMinBtn, newMinute === m && styles.gridMinBtnActive]}
-                    onPress={() => setNewMinute(m)}
-                  >
-                    <Text style={[styles.gridMinText, newMinute === m && styles.gridMinTextActive]}>
-                      {m < 10 ? `0${m}` : m} min
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <TouchableOpacity 
-                style={styles.actionAddBtn}
-                onPress={() => {
-                  const timeStr = `${newHour < 10 ? `0${newHour}` : newHour}:${newMinute < 10 ? `0${newMinute}` : newMinute}`;
-                  if (customHours.includes(timeStr)) return Alert.alert("Aviso", "Este horario ya existe");
-                  saveConfig([...customHours, timeStr]);
-                }}
-              >
-                <Ionicons name="add-circle" size={20} color="#fff" style={{ marginRight: 8 }} />
-                <Text style={styles.actionAddBtnText}>Agregar Horario</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                onPress={() => saveConfig(['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'])}
-                style={styles.quickFillLink}
-              >
-                <Text style={styles.quickFillLinkText}>O pre-llenar de 9 AM a 6 PM</Text>
-              </TouchableOpacity>
             </View>
 
-            {/* Column 2: List Management */}
-            <View style={styles.gridListColumn}>
-              <View style={styles.columnHeaderRow}>
-                <Text style={styles.columnLabel}>Horarios en la Agenda ({customHours.length})</Text>
-                {customHours.length > 0 && (
-                  <TouchableOpacity onPress={() => saveConfig([])}>
-                    <Text style={styles.dangerLink}>Limpiar</Text>
+            {/* RIGHT COLUMN */}
+            <View style={{ flex: 1.5, gap: 24 }}>
+              
+              {/* Horarios Card */}
+              <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, borderWidth: 1, borderColor: '#F1F5F9' }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                    <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name="time" size={18} color="#63348C" />
+                    </View>
+                    <View>
+                      <Text style={{ fontSize: 16, fontWeight: '800', color: '#0F172A' }}>Horarios de Inicio</Text>
+                      <Text style={{ fontSize: 12, color: '#94A3B8' }}>Citas comenzarán a estas horas</Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity 
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#63348C', backgroundColor: showAddHora ? '#EEF2FF' : '#fff' }}
+                    onPress={() => setShowAddHora(!showAddHora)}
+                  >
+                    <Ionicons name={showAddHora ? "close" : "add"} size={14} color="#63348C" />
+                    <Text style={{ fontSize: 12, fontWeight: '800', color: '#63348C' }}>{showAddHora ? "Cerrar" : "Nueva Hora"}</Text>
                   </TouchableOpacity>
-                )}
-              </View>
+                </View>
+                
+                {showAddHora && (
+                  <View style={{ marginBottom: 24, padding: 20, borderRadius: 12, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#F1F5F9' }}>
+                    <Text style={{ fontSize: 11, fontWeight: '800', color: '#94A3B8', marginBottom: 12, textTransform: 'uppercase' }}>1. Selecciona la hora</Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+                      {Array.from({ length: 24 }).map((_, h) => {
+                        const displayH = h === 0 ? 12 : h > 12 ? h - 12 : h;
+                        const ampm = h >= 12 ? 'PM' : 'AM';
+                        const isSelected = newHour === h;
+                        return (
+                          <TouchableOpacity 
+                            key={h} 
+                            onPress={() => setNewHour(h)}
+                            style={{ width: '15%', paddingVertical: 8, alignItems: 'center', borderRadius: 8, backgroundColor: isSelected ? '#63348C' : '#fff', borderWidth: 1, borderColor: isSelected ? '#63348C' : '#E2E8F0' }}
+                          >
+                            <Text style={{ fontSize: 10, fontWeight: '700', color: isSelected ? '#fff' : '#475569' }}>{displayH}{ampm}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
 
-              <ScrollView showsVerticalScrollIndicator={false} style={styles.hourListScroll}>
-                <View style={styles.hourCardsRow}>
+                    <Text style={{ fontSize: 11, fontWeight: '800', color: '#94A3B8', marginBottom: 12, textTransform: 'uppercase' }}>2. Selecciona los minutos</Text>
+                    <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
+                      {[0, 15, 30, 45].map(m => {
+                        const isSelected = newMinute === m;
+                        return (
+                          <TouchableOpacity 
+                            key={m} 
+                            onPress={() => setNewMinute(m)}
+                            style={{ flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8, backgroundColor: isSelected ? '#63348C' : '#fff', borderWidth: 1, borderColor: isSelected ? '#63348C' : '#E2E8F0' }}
+                          >
+                            <Text style={{ fontSize: 12, fontWeight: '700', color: isSelected ? '#fff' : '#475569' }}>{m < 10 ? `0${m}` : m} min</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+
+                    <TouchableOpacity 
+                      onPress={() => {
+                        const timeStr = `${newHour < 10 ? `0${newHour}` : newHour}:${newMinute < 10 ? `0${newMinute}` : newMinute}`;
+                        if (!customHours.includes(timeStr)) {
+                          setCustomHours([...customHours, timeStr].sort((a, b) => a.localeCompare(b)));
+                          setShowAddHora(false);
+                        } else {
+                          Alert.alert("Aviso", "Este horario ya existe");
+                        }
+                      }}
+                      style={{ backgroundColor: '#63348C', paddingVertical: 12, borderRadius: 10, alignItems: 'center' }}
+                    >
+                      <Text style={{ color: '#fff', fontWeight: '800', fontSize: 14 }}>Añadir horario seleccionado</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
                   {customHours.map(time => {
                     const [h, m] = time.split(':').map(Number);
                     const displayH = h === 0 ? 12 : h > 12 ? h - 12 : h;
                     const ampm = h >= 12 ? 'PM' : 'AM';
+                    const time12 = `${displayH}:${m < 10 ? `0${m}` : m} ${ampm}`;
+                    
                     return (
-                      <View key={time} style={styles.hourBadge}>
-                        <Text style={styles.hourBadgeText}>{displayH}:{m < 10 ? `0${m}` : m} {ampm}</Text>
-                        <TouchableOpacity 
-                          onPress={() => saveConfig(customHours.filter(h => h !== time))}
-                          style={styles.hourBadgeClose}
-                        >
-                          <Ionicons name="close" size={14} color="#64748B" />
+                      <View key={time} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#fff' }}>
+                        <Text style={{ fontSize: 14, fontWeight: '800', color: '#0F172A' }}>{time12}</Text>
+                        <TouchableOpacity onPress={() => setCustomHours(customHours.filter(h => h !== time))}>
+                          <Ionicons name="close" size={14} color="#EF4444" />
                         </TouchableOpacity>
                       </View>
                     );
                   })}
-                  {customHours.length === 0 && (
-                    <View style={styles.gridEmptyState}>
-                      <Ionicons name="time-outline" size={44} color="#E2E8F0" />
-                      <Text style={styles.gridEmptyText}>No hay horarios</Text>
-                    </View>
-                  )}
+                  {customHours.length === 0 && !showAddHora && <Text style={{ color: '#94A3B8', fontSize: 13 }}>No hay horarios configurados.</Text>}
                 </View>
-              </ScrollView>
+              </View>
+
+              {/* Excepciones Card */}
+              <View style={{ flex: isDesktop ? 1 : undefined, backgroundColor: '#fff', borderRadius: 16, padding: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, borderWidth: 1, borderColor: '#F1F5F9' }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                    <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#FEF2F2', alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name="calendar-clear" size={18} color="#EF4444" />
+                    </View>
+                    <View>
+                      <Text style={{ fontSize: 16, fontWeight: '800', color: '#0F172A' }}>Excepciones</Text>
+                      <Text style={{ fontSize: 12, color: '#94A3B8' }}>Fechas específicas bloqueadas</Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity 
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#EF4444', backgroundColor: showExcCal ? '#FEF2F2' : '#fff' }}
+                    onPress={() => setShowExcCal(!showExcCal)}
+                  >
+                    <Ionicons name={showExcCal ? "close" : "add"} size={14} color="#EF4444" />
+                    <Text style={{ fontSize: 12, fontWeight: '800', color: '#EF4444' }}>{showExcCal ? "Cerrar" : "Bloquear Fecha"}</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {showExcCal && (
+                  <View style={{ marginBottom: 24, padding: 16, borderRadius: 12, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#F1F5F9' }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                      <TouchableOpacity onPress={() => { const d = new Date(excMonth); d.setMonth(d.getMonth()-1); setExcMonth(d); }}>
+                        <Ionicons name="chevron-back" size={16} color="#64748B" />
+                      </TouchableOpacity>
+                      <Text style={{ fontSize: 14, fontWeight: '800', color: '#0F172A' }}>
+                        {['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][excMonth.getMonth()]} {excMonth.getFullYear()}
+                      </Text>
+                      <TouchableOpacity onPress={() => { const d = new Date(excMonth); d.setMonth(d.getMonth()+1); setExcMonth(d); }}>
+                        <Ionicons name="chevron-forward" size={16} color="#64748B" />
+                      </TouchableOpacity>
+                    </View>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                      {['L','M','M','J','V','S','D'].map((wd, i) => (
+                        <Text key={i} style={{ width: '14.28%', textAlign: 'center', fontSize: 10, fontWeight: '800', color: '#94A3B8', marginBottom: 8 }}>{wd}</Text>
+                      ))}
+                      {(() => {
+                        const calYear = excMonth.getFullYear();
+                        const calMonth = excMonth.getMonth();
+                        const firstDow = new Date(calYear, calMonth, 1).getDay();
+                        const offset = firstDow === 0 ? 6 : firstDow - 1;
+                        const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+                        const calDays = [...Array(offset).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
+                        
+                        return calDays.map((day, i) => {
+                          if (!day) return <View key={`e${i}`} style={{ width: '14.28%', height: 32 }} />;
+                          const dStr = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                          const isBlocked = fechasBloqueadas.includes(dStr);
+                          return (
+                            <TouchableOpacity 
+                              key={i} 
+                              style={{ width: '14.28%', height: 32, alignItems: 'center', justifyContent: 'center', marginBottom: 2 }}
+                              onPress={() => {
+                                if (isBlocked) setFechasBloqueadas(fechasBloqueadas.filter(f => f !== dStr));
+                                else setFechasBloqueadas([...fechasBloqueadas, dStr]);
+                              }}
+                            >
+                              <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: isBlocked ? '#EF4444' : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+                                <Text style={{ fontSize: 12, fontWeight: isBlocked ? '800' : '600', color: isBlocked ? '#fff' : '#0F172A' }}>{day}</Text>
+                              </View>
+                            </TouchableOpacity>
+                          );
+                        });
+                      })()}
+                    </View>
+                  </View>
+                )}
+
+                {fechasBloqueadas.length === 0 ? (
+                  <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                    <Text style={{ fontSize: 13, color: '#94A3B8' }}>No hay fechas específicas bloqueadas</Text>
+                  </View>
+                ) : (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                    {fechasBloqueadas.map(fecha => (
+                      <View key={fecha} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA' }}>
+                        <Text style={{ fontSize: 13, fontWeight: '700', color: '#EF4444' }}>{fecha}</Text>
+                        <TouchableOpacity onPress={() => setFechasBloqueadas(fechasBloqueadas.filter(f => f !== fecha))}>
+                          <Ionicons name="close" size={14} color="#EF4444" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+
             </View>
           </View>
-
-          <View style={styles.gridFooter}>
-            <TouchableOpacity 
-              style={styles.gridDoneBtn}
-              onPress={() => setConfigModalOpen(false)}
-            >
-              <Text style={styles.gridDoneBtnText}>Guardar y Finalizar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
+        </ScrollView>
+      </SafeAreaView>
     </Modal>
   );
 
   const renderMobileDetail = () => (
     <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
-      <View style={[styles.mobileDetailHeader, { backgroundColor: selectedCita?.color || '#6366F1' }]}>
+      <View style={[styles.mobileDetailHeader, { backgroundColor: selectedCita?.color || '#63348C' }]}>
         <TouchableOpacity onPress={() => setDetailModalOpen(false)} style={styles.mobileDetailBack}>
           <Ionicons name="arrow-back" size={22} color="#fff" />
         </TouchableOpacity>
@@ -574,7 +909,7 @@ export default function AgendaScreen() {
           <Text style={styles.mobileDetailCategory}>{selectedCita?.categoria || 'SERVICIO'}</Text>
           <Text style={styles.mobileDetailTitle} numberOfLines={1}>{selectedCita?.servicioNombre || 'Servicio'}</Text>
         </View>
-        <View style={[styles.mobileStatusPill, { backgroundColor: selectedCita?.estado === 'Completadas' ? '#10B981' : 'rgba(255,255,255,0.25)' }]}>
+        <View style={[styles.mobileStatusPill, { backgroundColor: selectedCita?.estado === 'Completadas' ? '#63348C' : 'rgba(255,255,255,0.25)' }]}>
           <Text style={styles.mobileStatusPillText}>{selectedCita?.estado || 'Pendiente'}</Text>
         </View>
       </View>
@@ -583,7 +918,7 @@ export default function AgendaScreen() {
         <View style={styles.mobileInfoGroup}>
           <View style={styles.mobileInfoRow}>
             <View style={[styles.mobileInfoIcon, { backgroundColor: '#EEF2FF' }]}>
-              <Ionicons name="person" size={18} color="#6366F1" />
+              <Ionicons name="person" size={18} color="#63348C" />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.mobileInfoLabel}>Cliente</Text>
@@ -593,7 +928,7 @@ export default function AgendaScreen() {
           <View style={styles.mobileInfoDivider} />
           <View style={styles.mobileInfoRow}>
             <View style={[styles.mobileInfoIcon, { backgroundColor: '#EEF2FF' }]}>
-              <Ionicons name="calendar" size={18} color="#6366F1" />
+              <Ionicons name="calendar" size={18} color="#63348C" />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.mobileInfoLabel}>Fecha y Hora</Text>
@@ -603,7 +938,7 @@ export default function AgendaScreen() {
           <View style={styles.mobileInfoDivider} />
           <View style={styles.mobileInfoRow}>
             <View style={[styles.mobileInfoIcon, { backgroundColor: '#EEF2FF' }]}>
-              <Ionicons name="location" size={18} color="#6366F1" />
+              <Ionicons name="location" size={18} color="#63348C" />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.mobileInfoLabel}>Dirección</Text>
@@ -615,7 +950,7 @@ export default function AgendaScreen() {
               <View style={styles.mobileInfoDivider} />
               <View style={styles.mobileInfoRow}>
                 <View style={[styles.mobileInfoIcon, { backgroundColor: '#EEF2FF' }]}>
-                  <Ionicons name="paw" size={18} color="#6366F1" />
+                  <Ionicons name="paw" size={18} color="#63348C" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.mobileInfoLabel}>Mascota</Text>
@@ -629,7 +964,7 @@ export default function AgendaScreen() {
               <View style={styles.mobileInfoDivider} />
               <View style={styles.mobileInfoRow}>
                 <View style={[styles.mobileInfoIcon, { backgroundColor: '#EEF2FF' }]}>
-                  <Ionicons name="document-text" size={18} color="#6366F1" />
+                  <Ionicons name="document-text" size={18} color="#63348C" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.mobileInfoLabel}>Descripción</Text>
@@ -648,7 +983,7 @@ export default function AgendaScreen() {
         </TouchableOpacity>
         {selectedCita?.estado !== 'Completadas' ? (
           <TouchableOpacity style={[styles.secondaryActionButton, { flex: 1 }]} onPress={() => markAsCompleted(selectedCita.id)}>
-            <Ionicons name="checkmark-done" size={18} color="#10B981" />
+            <Ionicons name="checkmark-done" size={18} color="#63348C" />
             <Text style={styles.secondaryActionButtonText}>Completado</Text>
           </TouchableOpacity>
         ) : null}
@@ -659,7 +994,7 @@ export default function AgendaScreen() {
   const renderDetailContent = () => (
     <ScrollView bounces={false} contentContainerStyle={{ flexGrow: 1 }} style={{ flex: 1 }}>
       <View style={{ flexDirection: 'row', flex: 1 }}>
-        <View style={[styles.modalVisualSide, { backgroundColor: selectedCita?.color || '#6366F1', width: 320, padding: 40 }]}>
+        <View style={[styles.modalVisualSide, { backgroundColor: selectedCita?.color || '#63348C', width: 320, padding: 40 }]}>
           <TouchableOpacity onPress={() => setDetailModalOpen(false)} style={styles.modalVisualClose}>
             <Ionicons name="close" size={24} color="#fff" />
           </TouchableOpacity>
@@ -669,7 +1004,7 @@ export default function AgendaScreen() {
             </View>
             <Text style={styles.visualServiceName}>{selectedCita?.servicioNombre || 'Servicio'}</Text>
             <View style={styles.visualStatusRow}>
-              <View style={[styles.statusDot, { backgroundColor: selectedCita?.estado === 'Completadas' ? '#10B981' : '#fff' }]} />
+              <View style={[styles.statusDot, { backgroundColor: selectedCita?.estado === 'Completadas' ? '#63348C' : '#fff' }]} />
               <Text style={styles.visualStatusText}>{selectedCita?.estado || 'Pendiente'}</Text>
             </View>
           </View>
@@ -678,19 +1013,19 @@ export default function AgendaScreen() {
           <View style={styles.detailSection}>
             <Text style={styles.sectionTitle}>Información del Cliente</Text>
             <View style={styles.infoCard}>
-              <View style={styles.infoIconBox}><Ionicons name="person" size={20} color="#6366F1" /></View>
+              <View style={styles.infoIconBox}><Ionicons name="person" size={20} color="#63348C" /></View>
               <View><Text style={styles.infoLabel}>Nombre Completo</Text><Text style={styles.infoValue}>{selectedCita?.clienteNombre || 'Usuario'}</Text></View>
             </View>
             <View style={styles.infoCard}>
-              <View style={styles.infoIconBox}><Ionicons name="time" size={20} color="#6366F1" /></View>
+              <View style={styles.infoIconBox}><Ionicons name="time" size={20} color="#63348C" /></View>
               <View><Text style={styles.infoLabel}>Horario Reservado</Text><Text style={styles.infoValue}>{selectedCita?.fecha ? (selectedCita.fecha instanceof Timestamp ? selectedCita.fecha.toDate() : new Date(selectedCita.fecha)).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }) : ''} a las {formatTime(selectedCita?.fecha)}</Text></View>
             </View>
             <View style={styles.infoCard}>
-              <View style={styles.infoIconBox}><Ionicons name="location" size={20} color="#6366F1" /></View>
+              <View style={styles.infoIconBox}><Ionicons name="location" size={20} color="#63348C" /></View>
               <View style={{ flex: 1 }}><Text style={styles.infoLabel}>Ubicación del Servicio</Text><Text style={styles.infoValue} numberOfLines={2}>{selectedCita?.clienteUbicacion || 'Sin ubicación'}</Text></View>
             </View>
-            {selectedCita?.animal ? (<View style={styles.infoCard}><View style={styles.infoIconBox}><Ionicons name="paw" size={20} color="#6366F1" /></View><View><Text style={styles.infoLabel}>Mascota</Text><Text style={styles.infoValue}>{selectedCita.animal}</Text></View></View>) : null}
-            {selectedCita?.descripcion ? (<View style={styles.infoCard}><View style={styles.infoIconBox}><Ionicons name="document-text" size={20} color="#6366F1" /></View><View style={{ flex: 1 }}><Text style={styles.infoLabel}>Descripción</Text><Text style={styles.infoValue}>{selectedCita.descripcion}</Text></View></View>) : null}
+            {selectedCita?.animal ? (<View style={styles.infoCard}><View style={styles.infoIconBox}><Ionicons name="paw" size={20} color="#63348C" /></View><View><Text style={styles.infoLabel}>Mascota</Text><Text style={styles.infoValue}>{selectedCita.animal}</Text></View></View>) : null}
+            {selectedCita?.descripcion ? (<View style={styles.infoCard}><View style={styles.infoIconBox}><Ionicons name="document-text" size={20} color="#63348C" /></View><View style={{ flex: 1 }}><Text style={styles.infoLabel}>Descripción</Text><Text style={styles.infoValue}>{selectedCita.descripcion}</Text></View></View>) : null}
           </View>
           <View style={[styles.actionGroup, { marginTop: 40 }]}>
             <TouchableOpacity style={styles.primaryActionButton} onPress={() => openMap(selectedCita?.clienteUbicacion, selectedCita?.clienteLat, selectedCita?.clienteLng)}>
@@ -698,7 +1033,7 @@ export default function AgendaScreen() {
             </TouchableOpacity>
             {selectedCita?.estado !== 'Completadas' ? (
               <TouchableOpacity style={styles.secondaryActionButton} onPress={() => markAsCompleted(selectedCita.id)}>
-                <Ionicons name="checkmark-done" size={20} color="#10B981" /><Text style={styles.secondaryActionButtonText}>Marcar como Completado</Text>
+                <Ionicons name="checkmark-done" size={20} color="#63348C" /><Text style={styles.secondaryActionButtonText}>Marcar como Completado</Text>
               </TouchableOpacity>
             ) : null}
           </View>
@@ -734,7 +1069,7 @@ export default function AgendaScreen() {
         {renderConfigModal()}
         {loading && (
           <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#6366F1" />
+            <ActivityIndicator size="large" color="#63348C" />
           </View>
         )}
       </SafeAreaView>
@@ -748,34 +1083,34 @@ const styles = StyleSheet.create({
   canvasContainer: { flex: 1, backgroundColor: '#FFFFFF', padding: 32 },
   topControlBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 },
   topBarLeft: { flexDirection: 'row', alignItems: 'center', gap: 40 },
-  canvasTitle: { fontSize: 28, fontWeight: '900', color: '#0F172A', letterSpacing: -1 },
-  dateSelector: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 6, borderWidth: 1, borderColor: '#E2E8F0' },
-  navBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
-  dateRangeText: { fontSize: 15, fontWeight: '700', color: '#0F172A', paddingHorizontal: 16 },
-  topBarRight: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  filterChipGroup: { flexDirection: 'row', backgroundColor: '#F8FAFC', borderRadius: 12, padding: 4, borderWidth: 1, borderColor: '#E2E8F0' },
-  filterChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
+  canvasTitle: { fontSize: 22, fontWeight: '900', color: '#0F172A', letterSpacing: -0.8 },
+  dateSelector: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 4, borderWidth: 1, borderColor: '#E2E8F0' },
+  navBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
+  dateRangeText: { fontSize: 13, fontWeight: '700', color: '#0F172A', paddingHorizontal: 12 },
+  topBarRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  filterChipGroup: { flexDirection: 'row', backgroundColor: '#F8FAFC', borderRadius: 10, padding: 3, borderWidth: 1, borderColor: '#E2E8F0' },
+  filterChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 },
   filterChipActive: { backgroundColor: '#fff', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4 },
-  filterChipText: { fontSize: 13, fontWeight: '600', color: '#64748B' },
+  filterChipText: { fontSize: 12, fontWeight: '600', color: '#64748B' },
   filterChipTextActive: { color: '#0F172A', fontWeight: '800' },
-  primaryActionBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#6366F1', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12, shadowColor: '#6366F1', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10 },
+  primaryActionBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#10B981', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12, shadowColor: '#10B981', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10 },
   primaryActionBtnText: { color: '#fff', fontSize: 14, fontWeight: '800' },
-  canvasGridWrapper: { flex: 1, backgroundColor: '#fff', borderRadius: 24, borderWidth: 1, borderColor: '#F1F5F9', overflow: 'hidden' },
+  canvasGridWrapper: { flex: 1, backgroundColor: '#fff', borderRadius: 20, borderWidth: 1, borderColor: '#F1F5F9', overflow: 'hidden' },
   canvasGridHeader: { flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
-  hourGutterHeader: { width: 100 },
-  canvasDayHeader: { flex: 1, paddingVertical: 20, alignItems: 'center', borderLeftWidth: 1, borderLeftColor: '#F1F5F9' },
-  canvasDayName: { fontSize: 11, fontWeight: '800', color: '#94A3B8', marginBottom: 4 },
-  canvasDayNum: { fontSize: 20, fontWeight: '900', color: '#0F172A' },
-  canvasDayNumToday: { color: '#6366F1' },
+  hourGutterHeader: { width: 80 },
+  canvasDayHeader: { flex: 1, paddingVertical: 14, alignItems: 'center', borderLeftWidth: 1, borderLeftColor: '#F1F5F9' },
+  canvasDayName: { fontSize: 10, fontWeight: '800', color: '#94A3B8', marginBottom: 2 },
+  canvasDayNum: { fontSize: 16, fontWeight: '900', color: '#0F172A' },
+  canvasDayNumToday: { color: '#63348C' },
   canvasGridBody: { backgroundColor: '#fff' },
-  canvasRow: { flexDirection: 'row', minHeight: 110, borderBottomWidth: 1, borderBottomColor: '#F8FAFC' },
-  hourGutter: { width: 100, alignItems: 'center', paddingTop: 12 },
-  hourText: { fontSize: 12, fontWeight: '800', color: '#475569' },
-  canvasCell: { flex: 1, borderLeftWidth: 1, borderLeftColor: '#F1F5F9', padding: 6, gap: 6 },
-  canvasCitaCard: { backgroundColor: '#fff', borderRadius: 10, padding: 10, borderLeftWidth: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.02, shadowRadius: 8, borderWidth: 1, borderColor: '#F1F5F9' },
-  citaCardTime: { fontSize: 10, fontWeight: '900', color: '#94A3B8', marginBottom: 4 },
-  citaCardClient: { fontSize: 13, fontWeight: '800', color: '#0F172A', marginBottom: 2 },
-  citaCardService: { fontSize: 11, fontWeight: '600', color: '#64748B' },
+  canvasRow: { flexDirection: 'row', minHeight: 90, borderBottomWidth: 1, borderBottomColor: '#F8FAFC' },
+  hourGutter: { width: 80, alignItems: 'center', paddingTop: 10 },
+  hourText: { fontSize: 11, fontWeight: '800', color: '#475569' },
+  canvasCell: { flex: 1, borderLeftWidth: 1, borderLeftColor: '#F1F5F9', padding: 4, gap: 4 },
+  canvasCitaCard: { backgroundColor: '#fff', borderRadius: 8, padding: 8, borderLeftWidth: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.02, shadowRadius: 8, borderWidth: 1, borderColor: '#F1F5F9' },
+  citaCardTime: { fontSize: 9, fontWeight: '900', color: '#94A3B8', marginBottom: 2 },
+  citaCardClient: { fontSize: 12, fontWeight: '800', color: '#0F172A', marginBottom: 1 },
+  citaCardService: { fontSize: 10, fontWeight: '600', color: '#64748B' },
   
   mobileContainer: { flex: 1, backgroundColor: '#fff' },
   mobileHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 40, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
@@ -784,7 +1119,7 @@ const styles = StyleSheet.create({
   mobileDateInfo: { flex: 1, alignItems: 'center' },
   mobileTitle: { fontSize: 20, fontWeight: '900', color: '#0F172A', textAlign: 'center' },
   mobileSubtitle: { fontSize: 13, color: '#64748B', textTransform: 'capitalize', textAlign: 'center', marginTop: 2 },
-  mobileTodayBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: '#6366F1' },
+  mobileTodayBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: '#63348C' },
   mobileTodayBtnText: { color: '#fff', fontSize: 12, fontWeight: '800' },
   
   mobileGridHeader: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#F1F5F9', backgroundColor: '#fff' },
@@ -792,7 +1127,7 @@ const styles = StyleSheet.create({
   mobileDayColHeader: { flex: 1, alignItems: 'center', paddingVertical: 12, borderLeftWidth: 1, borderLeftColor: '#F8FAFC' },
   mobileDayName: { fontSize: 9, fontWeight: '800', color: '#94A3B8', marginBottom: 4 },
   mobileDayCircle: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  mobileDayCircleToday: { backgroundColor: '#6366F1' },
+  mobileDayCircleToday: { backgroundColor: '#63348C' },
   mobileDayNum: { fontSize: 14, fontWeight: '900', color: '#0F172A' },
   
   mobileGridBody: { backgroundColor: '#fff' },
@@ -804,7 +1139,7 @@ const styles = StyleSheet.create({
   mobileCitaTime: { fontSize: 8, fontWeight: '900', marginBottom: 1 },
   mobileCitaClient: { fontSize: 9, fontWeight: '800', color: '#0F172A' },
   
-  mobileFab: { position: 'absolute', bottom: 30, right: 24, width: 60, height: 60, borderRadius: 30, backgroundColor: '#6366F1', alignItems: 'center', justifyContent: 'center', shadowColor: '#6366F1', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8 },
+  mobileFab: { position: 'absolute', bottom: 30, right: 24, width: 60, height: 60, borderRadius: 30, backgroundColor: '#10B981', alignItems: 'center', justifyContent: 'center', shadowColor: '#10B981', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8 },
 
   settingsBtn: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#F8FAFC', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#E2E8F0', marginLeft: 8 },
 
@@ -833,10 +1168,10 @@ const styles = StyleSheet.create({
   infoValue: { fontSize: 14, fontWeight: '800', color: '#0F172A' },
 
   actionGroup: { gap: 12 },
-  primaryActionButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: '#6366F1', paddingVertical: 18, borderRadius: 16, shadowColor: '#6366F1', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 15 },
+  primaryActionButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: '#10B981', paddingVertical: 18, borderRadius: 16, shadowColor: '#10B981', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 15 },
   primaryActionButtonText: { color: '#fff', fontSize: 15, fontWeight: '900' },
-  secondaryActionButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: '#fff', paddingVertical: 18, borderRadius: 16, borderWidth: 1.5, borderColor: '#10B981' },
-  secondaryActionButtonText: { color: '#10B981', fontSize: 15, fontWeight: '900' },
+  secondaryActionButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: '#fff', paddingVertical: 18, borderRadius: 16, borderWidth: 1.5, borderColor: '#63348C' },
+  secondaryActionButtonText: { color: '#63348C', fontSize: 15, fontWeight: '900' },
 
   mobileDetailOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, backgroundColor: '#fff', flex: 1 },
   mobileDetailHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 18, paddingTop: 50 },
@@ -863,7 +1198,7 @@ const styles = StyleSheet.create({
   inputLabel: { fontSize: 14, fontWeight: '700', color: '#64748B', marginBottom: 12 },
   hourInputGroup: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   hourOption: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0' },
-  hourOptionActive: { backgroundColor: '#6366F1', borderColor: '#6366F1' },
+  hourOptionActive: { backgroundColor: '#63348C', borderColor: '#63348C' },
   hourOptionText: { fontSize: 13, fontWeight: '700', color: '#475569' },
   hourOptionTextActive: { color: '#fff' },
   // Fixed Premium Modal Styles
@@ -906,17 +1241,17 @@ const styles = StyleSheet.create({
   columnLabel: { fontSize: 11, fontWeight: '800', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 16 },
   hourGridContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   gridHourBtn: { width: '23.5%', paddingVertical: 10, alignItems: 'center', borderRadius: 10, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0' },
-  gridHourBtnActive: { backgroundColor: '#6366F1', borderColor: '#6366F1' },
+  gridHourBtnActive: { backgroundColor: '#63348C', borderColor: '#63348C' },
   gridHourText: { fontSize: 11, fontWeight: '700', color: '#475569' },
   gridHourTextActive: { color: '#fff' },
   
   minuteRow: { flexDirection: 'row', gap: 8 },
   gridMinBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 10, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0' },
-  gridMinBtnActive: { backgroundColor: '#EEF2FF', borderColor: '#6366F1' },
+  gridMinBtnActive: { backgroundColor: '#EEF2FF', borderColor: '#63348C' },
   gridMinText: { fontSize: 12, fontWeight: '700', color: '#64748B' },
-  gridMinTextActive: { color: '#6366F1' },
+  gridMinTextActive: { color: '#63348C' },
   
-  actionAddBtn: { backgroundColor: '#6366F1', paddingVertical: 14, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 24 },
+  actionAddBtn: { backgroundColor: '#10B981', paddingVertical: 14, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 24 },
   actionAddBtnText: { color: '#fff', fontSize: 15, fontWeight: '800' },
   quickFillLink: { alignSelf: 'center', marginTop: 12 },
   quickFillLinkText: { fontSize: 12, color: '#94A3B8', fontWeight: '600' },
@@ -940,9 +1275,62 @@ const styles = StyleSheet.create({
   mobileFilterBar: { paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
   mobileFilterScroll: { paddingHorizontal: 20, gap: 10 },
   mobileFilterChip: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0' },
-  mobileFilterChipActive: { backgroundColor: '#EEF2FF', borderColor: '#6366F1' },
+  mobileFilterChipActive: { backgroundColor: '#EEF2FF', borderColor: '#63348C' },
   mobileStatusDot: { width: 6, height: 6, borderRadius: 3 },
   mobileFilterChipText: { fontSize: 13, fontWeight: '600', color: '#64748B' },
-  mobileFilterChipTextActive: { color: '#6366F1', fontWeight: '800' },
+  mobileFilterChipTextActive: { color: '#63348C', fontWeight: '800' },
+
+  // ── NEW DESKTOP LAYOUT ──
+  agendaOuter: { flex: 1, flexDirection: 'row', backgroundColor: '#fff' },
+  agendaSidebar: { width: 250, borderRightWidth: 1, borderRightColor: '#E2E8F0', padding: 24, backgroundColor: '#fff' },
+  sidebarTitle: { fontSize: 22, fontWeight: '900', color: '#0F172A', marginBottom: 20 },
+  miniCal: { marginBottom: 24 },
+  miniCalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  miniCalTitle: { fontSize: 13, fontWeight: '800', color: '#0F172A' },
+  miniCalGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  miniCalDow: { width: '14.28%', textAlign: 'center', fontSize: 9, fontWeight: '700', color: '#94A3B8', marginBottom: 4 },
+  miniCalDay: { width: '14.28%', height: 28, alignItems: 'center', justifyContent: 'center', marginBottom: 2 },
+  miniCalDayToday: { backgroundColor: '#63348C', borderRadius: 14 },
+  miniCalDayInWeek: { backgroundColor: '#EEF2FF', borderRadius: 4 },
+  miniCalDayTxt: { fontSize: 11, fontWeight: '600', color: '#0F172A' },
+  miniCalDayTxtToday: { color: '#fff', fontWeight: '900' },
+  miniCalDayTxtInWeek: { color: '#63348C', fontWeight: '700' },
+  miniCalDot: { width: 4, height: 4, borderRadius: 2 },
+  sidebarSectionLabel: { fontSize: 9, fontWeight: '800', color: '#94A3B8', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 10 },
+  statusOption: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, paddingHorizontal: 12, borderRadius: 10, marginBottom: 4 },
+  statusOptionActive: { backgroundColor: '#EEF2FF' },
+  statusDotLeft: { width: 8, height: 8, borderRadius: 4 },
+  statusOptionTxt: { fontSize: 14, fontWeight: '600', color: '#475569' },
+  statusOptionTxtActive: { color: '#63348C', fontWeight: '800' },
+  agendaRight: { flex: 1, flexDirection: 'column', overflow: 'hidden' },
+  rpHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
+  rpTitle: { fontSize: 18, fontWeight: '900', color: '#0F172A' },
+  rpSubtitle: { fontSize: 11, color: '#94A3B8', marginTop: 2 },
+  rpBtns: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  rpWeekNav: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 10, overflow: 'hidden' },
+  rpNavBtn: { paddingHorizontal: 10, paddingVertical: 8 },
+  rpNavLabel: { paddingHorizontal: 12, fontSize: 13, fontWeight: '700', color: '#0F172A', borderLeftWidth: 1, borderRightWidth: 1, borderColor: '#E2E8F0', paddingVertical: 8 },
+  rpSecBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9 },
+  rpSecBtnTxt: { fontSize: 13, fontWeight: '700', color: '#475569' },
+  rpPrimBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#10B981', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 9 },
+  rpPrimBtnTxt: { fontSize: 13, fontWeight: '700', color: '#fff' },
+  rpGridWrap: { flex: 1, overflow: 'hidden' },
+  rpGridHeader: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#E2E8F0', backgroundColor: '#fff' },
+  rpHourCol: { width: 72, borderRightWidth: 1, borderRightColor: '#E2E8F0', alignItems: 'center', paddingTop: 10 },
+  rpDayHeader: { flex: 1, paddingVertical: 12, alignItems: 'center', borderLeftWidth: 1, borderLeftColor: '#E2E8F0' },
+  rpDayName: { fontSize: 10, fontWeight: '800', color: '#94A3B8', marginBottom: 4 },
+  rpDayCircle: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  rpDayCircleToday: { backgroundColor: '#63348C' },
+  rpDayNum: { fontSize: 15, fontWeight: '900', color: '#0F172A' },
+  rpDayNumToday: { color: '#fff' },
+  rpRow: { flexDirection: 'row', minHeight: 85, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  rpHourTxt: { fontSize: 10, fontWeight: '700', color: '#94A3B8', marginTop: 8 },
+  rpCell: { flex: 1, borderLeftWidth: 1, borderLeftColor: '#F1F5F9', padding: 3, gap: 3 },
+  rpCellToday: { backgroundColor: '#FFFBF5' },
+  rpCitaCard: { borderRadius: 8, padding: 7 },
+  rpCitaName: { fontSize: 11, fontWeight: '800', color: '#fff' },
+  rpCitaService: { fontSize: 9, fontWeight: '600', color: 'rgba(255,255,255,0.85)' },
+  rpEquipoBadge: { backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1 },
+  rpEquipoTxt: { fontSize: 7, fontWeight: '900', color: '#fff' },
 });
 
