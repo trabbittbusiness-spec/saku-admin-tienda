@@ -1,4 +1,4 @@
-import { router, Stack } from 'expo-router';
+import { router, Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
@@ -25,6 +25,7 @@ export default function RootLayout() {
 
   const [loading, setLoading] = useState(true);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const currentPath = usePathname();
 
   useEffect(() => {
     console.log("RootLayout: Initializing auth state listener...");
@@ -35,19 +36,10 @@ export default function RootLayout() {
         setTimeout(() => setToastMsg(null), 4000);
       };
     }
-
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log("RootLayout: Auth state changed, user:", user?.uid || "null");
+      console.log("RootLayout: Auth state changed, user:", user?.uid || "null", "Path:", currentPath);
       
-      // Safe path detection
-      let path = '/';
-      try {
-        if (Platform.OS === 'web' && typeof window !== 'undefined') {
-          path = window.location.pathname;
-        }
-      } catch (e) {
-        console.log("Error getting path:", e);
-      }
+      const path = currentPath;
 
       if (!user) {
         setLoading(false);
@@ -98,7 +90,7 @@ export default function RootLayout() {
       unsubscribe();
       clearTimeout(timer);
     };
-  }, []);
+  }, [currentPath]);
 
 
   if (!fontsLoaded) {
