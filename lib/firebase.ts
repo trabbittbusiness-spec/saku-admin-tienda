@@ -22,6 +22,6 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const functions = getFunctions(app);
 const storage = getStorage(app);
-const messaging = Platform.OS === 'web' ? getMessaging(app) : null;
+const messaging = Platform.OS === 'web' && typeof window !== 'undefined' ? getMessaging(app) : null;
 
 export { app, auth, db, functions, storage, messaging };
