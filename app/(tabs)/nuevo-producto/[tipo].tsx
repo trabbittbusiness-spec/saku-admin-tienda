@@ -279,24 +279,32 @@ export default function NuevoProductoScreen() {
   const [foto1, setFoto1] = useState<string | null>(null);
   const [foto2, setFoto2] = useState<string | null>(null);
   const [foto3, setFoto3] = useState<string | null>(null);
+  const [foto1Base64, setFoto1Base64] = useState<string | null>(null);
+  const [foto2Base64, setFoto2Base64] = useState<string | null>(null);
+  const [foto3Base64, setFoto3Base64] = useState<string | null>(null);
 
   const reset = () => {
     setNombre(''); setPrecio(''); setMedida(''); setDescripcion('');
     setCategoria(''); setAnimalSelected([]); setMarca('');
     setEstadoPromocion(false); setDisponibilidad(true); setReceta(false); setColores([]); setVariants([]);
     setFoto1(null); setFoto2(null); setFoto3(null);
+    setFoto1Base64(null); setFoto2Base64(null); setFoto3Base64(null);
   };
 
-  const pickImage = async (setter: (v: string | null) => void) => {
+  const pickImage = async (setter: (v: string | null) => void, base64Setter: (v: string | null) => void) => {
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
       quality: 1,
+      base64: true,
     });
 
     if (!result.canceled) {
       setter(result.assets[0].uri);
+      if (result.assets[0].base64) {
+        base64Setter(result.assets[0].base64);
+      }
     }
   };
 
@@ -313,32 +321,36 @@ export default function NuevoProductoScreen() {
   const removeVariant = (i: number) => setVariants(variants.filter((_, idx) => idx !== i));
 
 
-  const uploadImage = async (uri: string | null) => {
+  const uploadImage = async (uri: string | null, base64String?: string | null) => {
     if (!uri) return '';
     if (uri.startsWith('http')) return uri; // Already a URL
 
     try {
       const userId = auth.currentUser?.uid || 'anonymous';
-      // Robust blob conversion for mobile and web
-      const blob: Blob = await new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.onload = function () {
-          resolve(xhr.response);
-        };
-        xhr.onerror = function (e) {
-          reject(new TypeError("Network request failed"));
-        };
-        xhr.responseType = "blob";
-        xhr.open("GET", uri, true);
-        xhr.send(null);
-      });
-      
-      // Path format requested: users/{userId}/uploads/{timestamp}.jpg
       const timestamp = Date.now() + Math.floor(Math.random() * 1000).toString();
       const filename = `${timestamp}.jpg`;
       const storageRef = ref(storage, `users/${userId}/uploads/${filename}`);
-      
-      await uploadBytes(storageRef, blob);
+
+      if (base64String) {
+        // Use uploadString to bypass XHR issues for local URIs
+        await uploadString(storageRef, base64String, 'base64', { contentType: 'image/jpeg' });
+      } else {
+        // Robust blob conversion for mobile and web
+        const blob: Blob = await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.onload = function () {
+            resolve(xhr.response);
+          };
+          xhr.onerror = function (e) {
+            reject(new TypeError("Network request failed"));
+          };
+          xhr.responseType = "blob";
+          xhr.open("GET", uri, true);
+          xhr.send(null);
+        });
+        
+        await uploadBytes(storageRef, blob, { contentType: 'image/jpeg' });
+      }
       return await getDownloadURL(storageRef);
     } catch (error) {
       console.error("Error uploading image:", error);
@@ -357,9 +369,9 @@ export default function NuevoProductoScreen() {
       
       // Upload images first
       const [url1, url2, url3] = await Promise.all([
-        uploadImage(foto1),
-        uploadImage(foto2),
-        uploadImage(foto3)
+        uploadImage(foto1, foto1Base64),
+        uploadImage(foto2, foto2Base64),
+        uploadImage(foto3, foto3Base64),
       ]);
 
       const docData = {

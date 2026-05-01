@@ -18,10 +18,19 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { collection, query, onSnapshot, addDoc, doc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, uploadString, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../lib/firebase';
 import * as ImagePicker from 'expo-image-picker';
-import { Video, ResizeMode } from 'expo-av';
+// Safe import for expo-av to prevent crash if native module is missing
+let Video: any = View;
+let ResizeMode: any = { COVER: 'cover', CONTAIN: 'contain', STRETCH: 'stretch' };
+try {
+  const ExpoAV = require('expo-av');
+  Video = ExpoAV.Video;
+  ResizeMode = ExpoAV.ResizeMode;
+} catch (e) {
+  console.warn("expo-av native module not found");
+}
 
 export default function ServiciosScreen() {
   const { width } = useWindowDimensions();
@@ -42,6 +51,7 @@ export default function ServiciosScreen() {
   const [precio, setPrecio] = useState('');
   const [duracion, setDuracion] = useState('');
   const [foto, setFoto] = useState<string | null>(null);
+  const [fotoBase64, setFotoBase64] = useState<string | null>(null);
   const [video, setVideo] = useState<string | null>(null);
   const [disponibilidad, setDisponibilidad] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -97,6 +107,7 @@ export default function ServiciosScreen() {
     setPrecio('');
     setDuracion('');
     setFoto(null);
+    setFotoBase64(null);
     setVideo(null);
     setCategoriaIds([]);
     setDisponibilidad(true);
@@ -112,6 +123,7 @@ export default function ServiciosScreen() {
     setPrecio(s.precio ? s.precio.toString() : '');
     setDuracion(s.duracion || '');
     setFoto(s.foto1 || null);
+    setFotoBase64(null);
     setVideo(s.video1 || null);
     
     // Handle migration from single string to array
@@ -135,10 +147,14 @@ export default function ServiciosScreen() {
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.6,
+      base64: true,
     });
 
     if (!result.canceled) {
       setFoto(result.assets[0].uri);
+      if (result.assets[0].base64) {
+        setFotoBase64(result.assets[0].base64);
+      }
     }
   };
 
@@ -155,30 +171,37 @@ export default function ServiciosScreen() {
     }
   };
 
-  const uploadFile = async (uri: string, isVideo: boolean = false) => {
+  const uploadFile = async (uri: string, isVideo: boolean = false, base64String?: string | null) => {
     try {
       if (uri.startsWith('http') && !uri.includes('localhost') && !uri.includes('blob:')) {
         return uri;
       }
-      // Robust blob conversion for mobile and web
-      const blob: Blob = await new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.onload = function () {
-          resolve(xhr.response);
-        };
-        xhr.onerror = function (e) {
-          reject(new TypeError("Network request failed"));
-        };
-        xhr.responseType = "blob";
-        xhr.open("GET", uri, true);
-        xhr.send(null);
-      });
       const filename = `servicios/${Date.now()}.${isVideo ? 'mp4' : 'jpg'}`;
       const storageRef = ref(storage, filename);
       
-      await uploadBytes(storageRef, blob, {
-        contentType: isVideo ? 'video/mp4' : 'image/jpeg'
-      });
+      if (!isVideo && base64String) {
+        // Use uploadString for images to completely bypass XHR/fetch local URI issues
+        await uploadString(storageRef, base64String, 'base64', { contentType: 'image/jpeg' });
+      } else {
+        // Fallback for videos or when base64 is unavailable
+        const blob: Blob = await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.onload = function () {
+            resolve(xhr.response);
+          };
+          xhr.onerror = function (e) {
+            reject(new TypeError("Network request failed"));
+          };
+          xhr.responseType = "blob";
+          xhr.open("GET", uri, true);
+          xhr.send(null);
+        });
+        
+        await uploadBytes(storageRef, blob, {
+          contentType: isVideo ? 'video/mp4' : 'image/jpeg'
+        });
+      }
+      
       const downloadURL = await getDownloadURL(storageRef);
       return downloadURL;
     } catch (e) {
@@ -202,7 +225,7 @@ export default function ServiciosScreen() {
     try {
       let finalFoto = '';
       let finalVideo = '';
-      if (foto) finalFoto = await uploadFile(foto, false);
+      if (foto) finalFoto = await uploadFile(foto, false, fotoBase64);
       if (video) finalVideo = await uploadFile(video, true);
 
       const servicioData = {

@@ -29,7 +29,7 @@ import {
   serverTimestamp,
   orderBy 
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, uploadBytes, uploadString, getDownloadURL, deleteObject } from 'firebase/storage';
 
 function Toast({ visible, message, type, onHide }: { visible: boolean; message: string; type: 'success' | 'error'; onHide: () => void }) {
   const [fadeAnim] = useState(new Animated.Value(0));
@@ -669,32 +669,21 @@ export default function PublicidadScreen() {
         allowsEditing: Platform.OS === 'web',
         aspect: type === 'portada' ? [80, 35] : [14, 4],
         quality: 1,
+        base64: true, // Request base64 to bypass local network request issues
       });
 
-      if (result.canceled) return;
+      if (result.canceled || !result.assets[0].base64) return;
 
       setUploading(true);
       const uri = result.assets[0].uri;
+      const base64 = result.assets[0].base64;
       const collName = type === 'portada' ? 'portadas' : 'publicidad';
       
       const filename = `${collName}/${Date.now()}_${type}${portadaIndex || ''}.jpg`;
       const storageRef = ref(storage, filename);
-      
-      // Robust blob conversion for mobile and web
-      const blob: Blob = await new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.onload = function () {
-          resolve(xhr.response);
-        };
-        xhr.onerror = function (e) {
-          reject(new TypeError("Network request failed"));
-        };
-        xhr.responseType = "blob";
-        xhr.open("GET", uri, true);
-        xhr.send(null);
-      });
 
-      await uploadBytes(storageRef, blob);
+      // Use uploadString with base64 to completely avoid fetch/XHR issues on mobile
+      await uploadString(storageRef, base64, 'base64', { contentType: 'image/jpeg' });
       const downloadURL = await getDownloadURL(storageRef);
 
       if (type === 'portada' && editVisible && editingItem) {
