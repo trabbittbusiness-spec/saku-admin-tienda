@@ -679,12 +679,12 @@ export default function AgendaScreen() {
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24 }}>
-          <View style={{ flexDirection: isDesktop ? 'row' : 'column', gap: 24, maxWidth: 1200, alignSelf: 'center', width: '100%', alignItems: isDesktop ? 'stretch' : 'flex-start' }}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: isDesktop ? 24 : 16, paddingBottom: 40 }}>
+          <View style={{ flexDirection: isDesktop ? 'row' : 'column', gap: isDesktop ? 24 : 16, maxWidth: 1200, alignSelf: 'center', width: '100%' }}>
             
-            {/* LEFT COLUMN */}
-            <View style={{ flex: 1, backgroundColor: '#fff', borderRadius: 16, padding: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, borderWidth: 1, borderColor: '#F1F5F9' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 32 }}>
+            {/* LEFT COLUMN / GENERAL CONFIG */}
+            <View style={{ flex: 1, backgroundColor: '#fff', borderRadius: isDesktop ? 16 : 20, padding: isDesktop ? 24 : 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, borderWidth: 1, borderColor: '#F1F5F9' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: isDesktop ? 32 : 24 }}>
                 <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: '#63348C', alignItems: 'center', justifyContent: 'center' }}>
                   <Ionicons name="calendar" size={22} color="#fff" />
                 </View>
@@ -695,10 +695,10 @@ export default function AgendaScreen() {
               </View>
 
               <Text style={styles.sidebarSectionLabel}>ESTADO DE LA AGENDA</Text>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 12, backgroundColor: agendaActiva ? '#ECFDF5' : '#F1F5F9', borderWidth: 1, borderColor: agendaActiva ? '#A7F3D0' : '#E2E8F0', marginBottom: 24 }}>
-                <View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 12, backgroundColor: agendaActiva ? '#ECFDF5' : '#F8FAFC', borderWidth: 1, borderColor: agendaActiva ? '#A7F3D0' : '#E2E8F0', marginBottom: 24 }}>
+                <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 14, fontWeight: '800', color: agendaActiva ? '#065F46' : '#64748B' }}>{agendaActiva ? 'Activa' : 'Inactiva'}</Text>
-                  <Text style={{ fontSize: 12, color: agendaActiva ? '#10B981' : '#94A3B8', marginTop: 2 }}>{agendaActiva ? 'Visible a clientes' : 'Oculta a clientes'}</Text>
+                  <Text style={{ fontSize: 11, color: agendaActiva ? '#10B981' : '#94A3B8', marginTop: 2 }}>{agendaActiva ? 'Visible a clientes' : 'Oculta a clientes'}</Text>
                 </View>
                 <Switch 
                   value={agendaActiva} 
@@ -710,8 +710,8 @@ export default function AgendaScreen() {
 
               <Text style={styles.sidebarSectionLabel}>MENSAJE PÚBLICO</Text>
               <TextInput 
-                style={{ backgroundColor: '#F8FAFC', borderRadius: 12, padding: 16, fontSize: 14, color: '#0F172A', minHeight: 80, marginBottom: 24, textAlignVertical: 'top' } as any}
-                placeholder="Ej. 'Cerrado por vacaciones hasta el 15 de enero'"
+                style={{ backgroundColor: '#F8FAFC', borderRadius: 12, padding: 16, fontSize: 14, color: '#0F172A', minHeight: 80, marginBottom: 24, textAlignVertical: 'top', borderWidth: 1, borderColor: '#F1F5F9' } as any}
+                placeholder="Ej. 'Cerrado por vacaciones...'"
                 placeholderTextColor="#94A3B8"
                 multiline
                 value={mensajePublico}
@@ -719,31 +719,31 @@ export default function AgendaScreen() {
               />
 
               <Text style={styles.sidebarSectionLabel}>DÍAS LIBRES (RECURRENTE)</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                 {['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'].map((d, idx) => {
                   const isLibre = diasLibres.includes(idx);
                   return (
                     <TouchableOpacity 
                       key={d} 
-                      style={{ width: '30%', paddingVertical: 10, alignItems: 'center', borderRadius: 8, borderWidth: 1, borderColor: isLibre ? '#FECACA' : '#E2E8F0', backgroundColor: isLibre ? '#FEF2F2' : '#fff' }}
+                      style={{ flex: 1, minWidth: '22%', paddingVertical: 12, alignItems: 'center', borderRadius: 10, borderWidth: 1, borderColor: isLibre ? '#EF4444' : '#E2E8F0', backgroundColor: isLibre ? '#FEF2F2' : '#fff' }}
                       onPress={() => {
                         if (isLibre) setDiasLibres(diasLibres.filter(x => x !== idx));
                         else setDiasLibres([...diasLibres, idx]);
                       }}
                     >
-                      <Text style={{ fontSize: 12, fontWeight: '700', color: isLibre ? '#EF4444' : '#64748B' }}>{d}</Text>
+                      <Text style={{ fontSize: 11, fontWeight: '800', color: isLibre ? '#EF4444' : '#64748B' }}>{d}</Text>
                     </TouchableOpacity>
                   );
                 })}
               </View>
             </View>
 
-            {/* RIGHT COLUMN */}
-            <View style={{ flex: 1.5, gap: 24 }}>
+            {/* RIGHT COLUMN / HOURS & EXCEPTIONS */}
+            <View style={{ flex: isDesktop ? 1.5 : 1, gap: 16 }}>
               
               {/* Horarios Card */}
-              <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, borderWidth: 1, borderColor: '#F1F5F9' }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+              <View style={{ backgroundColor: '#fff', borderRadius: isDesktop ? 16 : 20, padding: isDesktop ? 24 : 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, borderWidth: 1, borderColor: '#F1F5F9' }}>
+                <View style={{ flexDirection: isDesktop ? 'row' : 'column', justifyContent: 'space-between', alignItems: isDesktop ? 'flex-start' : 'stretch', gap: 16, marginBottom: 24 }}>
                   <View style={{ flexDirection: 'row', gap: 12 }}>
                     <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center' }}>
                       <Ionicons name="time" size={18} color="#63348C" />
@@ -754,18 +754,18 @@ export default function AgendaScreen() {
                     </View>
                   </View>
                   <TouchableOpacity 
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#63348C', backgroundColor: showAddHora ? '#EEF2FF' : '#fff' }}
+                    style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, borderWidth: 1.5, borderColor: '#63348C', backgroundColor: showAddHora ? '#EEF2FF' : '#fff' }}
                     onPress={() => setShowAddHora(!showAddHora)}
                   >
-                    <Ionicons name={showAddHora ? "close" : "add"} size={14} color="#63348C" />
-                    <Text style={{ fontSize: 12, fontWeight: '800', color: '#63348C' }}>{showAddHora ? "Cerrar" : "Nueva Hora"}</Text>
+                    <Ionicons name={showAddHora ? "close" : "add"} size={16} color="#63348C" />
+                    <Text style={{ fontSize: 13, fontWeight: '800', color: '#63348C' }}>{showAddHora ? "Cerrar" : "Nueva Hora"}</Text>
                   </TouchableOpacity>
                 </View>
                 
                 {showAddHora && (
-                  <View style={{ marginBottom: 24, padding: 20, borderRadius: 12, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#F1F5F9' }}>
-                    <Text style={{ fontSize: 11, fontWeight: '800', color: '#94A3B8', marginBottom: 12, textTransform: 'uppercase' }}>1. Selecciona la hora</Text>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+                  <View style={{ marginBottom: 24, padding: isDesktop ? 20 : 16, borderRadius: 12, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#F1F5F9' }}>
+                    <Text style={{ fontSize: 11, fontWeight: '800', color: '#94A3B8', marginBottom: 12, textTransform: 'uppercase' }}>1. Hora</Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 20 }}>
                       {Array.from({ length: 24 }).map((_, h) => {
                         const displayH = h === 0 ? 12 : h > 12 ? h - 12 : h;
                         const ampm = h >= 12 ? 'PM' : 'AM';
@@ -774,7 +774,7 @@ export default function AgendaScreen() {
                           <TouchableOpacity 
                             key={h} 
                             onPress={() => setNewHour(h)}
-                            style={{ width: '15%', paddingVertical: 8, alignItems: 'center', borderRadius: 8, backgroundColor: isSelected ? '#63348C' : '#fff', borderWidth: 1, borderColor: isSelected ? '#63348C' : '#E2E8F0' }}
+                            style={{ width: isDesktop ? '15%' : '18.5%', paddingVertical: 10, alignItems: 'center', borderRadius: 8, backgroundColor: isSelected ? '#63348C' : '#fff', borderWidth: 1, borderColor: isSelected ? '#63348C' : '#E2E8F0' }}
                           >
                             <Text style={{ fontSize: 10, fontWeight: '700', color: isSelected ? '#fff' : '#475569' }}>{displayH}{ampm}</Text>
                           </TouchableOpacity>
@@ -782,7 +782,7 @@ export default function AgendaScreen() {
                       })}
                     </View>
 
-                    <Text style={{ fontSize: 11, fontWeight: '800', color: '#94A3B8', marginBottom: 12, textTransform: 'uppercase' }}>2. Selecciona los minutos</Text>
+                    <Text style={{ fontSize: 11, fontWeight: '800', color: '#94A3B8', marginBottom: 12, textTransform: 'uppercase' }}>2. Minutos</Text>
                     <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
                       {[0, 15, 30, 45].map(m => {
                         const isSelected = newMinute === m;
@@ -790,9 +790,9 @@ export default function AgendaScreen() {
                           <TouchableOpacity 
                             key={m} 
                             onPress={() => setNewMinute(m)}
-                            style={{ flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8, backgroundColor: isSelected ? '#63348C' : '#fff', borderWidth: 1, borderColor: isSelected ? '#63348C' : '#E2E8F0' }}
+                            style={{ flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 8, backgroundColor: isSelected ? '#63348C' : '#fff', borderWidth: 1, borderColor: isSelected ? '#63348C' : '#E2E8F0' }}
                           >
-                            <Text style={{ fontSize: 12, fontWeight: '700', color: isSelected ? '#fff' : '#475569' }}>{m < 10 ? `0${m}` : m} min</Text>
+                            <Text style={{ fontSize: 12, fontWeight: '700', color: isSelected ? '#fff' : '#475569' }}>{m < 10 ? `0${m}` : m}</Text>
                           </TouchableOpacity>
                         );
                       })}
@@ -808,14 +808,14 @@ export default function AgendaScreen() {
                           Alert.alert("Aviso", "Este horario ya existe");
                         }
                       }}
-                      style={{ backgroundColor: '#63348C', paddingVertical: 12, borderRadius: 10, alignItems: 'center' }}
+                      style={{ backgroundColor: '#63348C', paddingVertical: 14, borderRadius: 12, alignItems: 'center' }}
                     >
-                      <Text style={{ color: '#fff', fontWeight: '800', fontSize: 14 }}>Añadir horario seleccionado</Text>
+                      <Text style={{ color: '#fff', fontWeight: '900', fontSize: 14 }}>Añadir horario</Text>
                     </TouchableOpacity>
                   </View>
                 )}
 
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                   {customHours.map(time => {
                     const [h, m] = time.split(':').map(Number);
                     const displayH = h === 0 ? 12 : h > 12 ? h - 12 : h;
@@ -823,21 +823,20 @@ export default function AgendaScreen() {
                     const time12 = `${displayH}:${m < 10 ? `0${m}` : m} ${ampm}`;
                     
                     return (
-                      <View key={time} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#fff' }}>
-                        <Text style={{ fontSize: 14, fontWeight: '800', color: '#0F172A' }}>{time12}</Text>
-                        <TouchableOpacity onPress={() => setCustomHours(customHours.filter(h => h !== time))}>
-                          <Ionicons name="close" size={14} color="#EF4444" />
+                      <View key={time} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: '#F1F5F9', backgroundColor: '#F8FAFC' }}>
+                        <Text style={{ fontSize: 12, fontWeight: '800', color: '#0F172A' }}>{time12}</Text>
+                        <TouchableOpacity onPress={() => setCustomHours(customHours.filter(h => h !== time))} style={{ padding: 2 }}>
+                          <Ionicons name="close-circle" size={16} color="#EF4444" />
                         </TouchableOpacity>
                       </View>
                     );
                   })}
-                  {customHours.length === 0 && !showAddHora && <Text style={{ color: '#94A3B8', fontSize: 13 }}>No hay horarios configurados.</Text>}
                 </View>
               </View>
 
               {/* Excepciones Card */}
-              <View style={{ flex: isDesktop ? 1 : undefined, backgroundColor: '#fff', borderRadius: 16, padding: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, borderWidth: 1, borderColor: '#F1F5F9' }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+              <View style={{ backgroundColor: '#fff', borderRadius: isDesktop ? 16 : 20, padding: isDesktop ? 24 : 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, borderWidth: 1, borderColor: '#F1F5F9' }}>
+                <View style={{ flexDirection: isDesktop ? 'row' : 'column', justifyContent: 'space-between', alignItems: isDesktop ? 'flex-start' : 'stretch', gap: 16, marginBottom: 24 }}>
                   <View style={{ flexDirection: 'row', gap: 12 }}>
                     <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#FEF2F2', alignItems: 'center', justifyContent: 'center' }}>
                       <Ionicons name="calendar-clear" size={18} color="#EF4444" />
@@ -848,11 +847,11 @@ export default function AgendaScreen() {
                     </View>
                   </View>
                   <TouchableOpacity 
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#EF4444', backgroundColor: showExcCal ? '#FEF2F2' : '#fff' }}
+                    style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, borderWidth: 1.5, borderColor: '#EF4444', backgroundColor: showExcCal ? '#FEF2F2' : '#fff' }}
                     onPress={() => setShowExcCal(!showExcCal)}
                   >
-                    <Ionicons name={showExcCal ? "close" : "add"} size={14} color="#EF4444" />
-                    <Text style={{ fontSize: 12, fontWeight: '800', color: '#EF4444' }}>{showExcCal ? "Cerrar" : "Bloquear Fecha"}</Text>
+                    <Ionicons name={showExcCal ? "close" : "add"} size={16} color="#EF4444" />
+                    <Text style={{ fontSize: 13, fontWeight: '800', color: '#EF4444' }}>{showExcCal ? "Cerrar" : "Bloquear"}</Text>
                   </TouchableOpacity>
                 </View>
 
