@@ -31,7 +31,7 @@ export async function uploadMedia(
   }
 
   // ===== MOBILE =====
-  const FileSystem = require('expo-file-system');
+  const FileSystem = require('expo-file-system/legacy');
 
   const user = auth.currentUser;
   if (!user) throw new Error('User must be authenticated to upload');
