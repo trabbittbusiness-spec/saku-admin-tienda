@@ -27,33 +27,48 @@ export default function RootLayout() {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log("RootLayout: Initializing auth state listener...");
     // Override the global trigger to use this component's state
-    (window as any).showSakuToast = (msg: string) => {
-      setToastMsg(msg);
-      setTimeout(() => setToastMsg(null), 4000);
-    };
+    if (typeof window !== 'undefined') {
+      (window as any).showSakuToast = (msg: string) => {
+        setToastMsg(msg);
+        setTimeout(() => setToastMsg(null), 4000);
+      };
+    }
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      // Get current path using standard browser API for reliability on web
-      const path = typeof window !== 'undefined' ? window.location.pathname : '/';
+      console.log("RootLayout: Auth state changed, user:", user?.uid || "null");
+      
+      // Safe path detection
+      let path = '/';
+      try {
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+          path = window.location.pathname;
+        }
+      } catch (e) {
+        console.log("Error getting path:", e);
+      }
 
       if (!user) {
         setLoading(false);
         if (path !== '/login' && path !== '/forgot-password') {
+          console.log("RootLayout: No user, redirecting to login");
           router.replace('/login');
         }
         return;
       } else {
         try {
+          console.log("RootLayout: User logged in, checking admin status...");
           const userDocRef = doc(db, 'users', user.uid);
           const userDocSnap = await getDoc(userDocRef);
           
           if (userDocSnap.exists() && userDocSnap.data().IsAdmin === true) {
+            console.log("RootLayout: Admin confirmed");
             if (path === '/login' || path === '/' || path === '/index') {
               router.replace('/(tabs)/hogar');
             }
           } else {
-            // Not an admin or no doc
+            console.log("RootLayout: User is not admin, signing out");
             if (path !== '/login') {
               await signOut(auth);
               router.replace('/login');
@@ -68,11 +83,38 @@ export default function RootLayout() {
       }
     });
 
-    return unsubscribe;
+    // Safety timeout: if loading takes more than 5s, force show something
+    const timer = setTimeout(() => {
+      setLoading(prev => {
+        if (prev) {
+          console.log("RootLayout: Loading timeout reached, forcing render");
+          return false;
+        }
+        return false;
+      });
+    }, 5000);
+
+    return () => {
+      unsubscribe();
+      clearTimeout(timer);
+    };
   }, []);
 
 
-  if (!fontsLoaded || loading) return null;
+  if (!fontsLoaded) {
+    console.log("RootLayout: Fonts not loaded yet");
+    return null;
+  }
+  
+  if (loading) {
+    console.log("RootLayout: Still loading auth...");
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0F172A' }}>
+        <ActivityIndicator size="large" color="#63348C" />
+        <Text style={{ marginTop: 20, color: '#fff', fontWeight: '700' }}>Iniciando Saku Admin...</Text>
+      </View>
+    );
+  }
 
   return (
     <SafeAreaProvider>
