@@ -9,6 +9,7 @@ import { auth, db } from '../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { View, Text, StyleSheet, Platform, ActivityIndicator } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { registerForPushNotificationsAsync } from '../lib/notifications';
 import '../global.css';
 
 // Global toast trigger for the entire app
@@ -56,6 +57,14 @@ export default function RootLayout() {
           
           if (userDocSnap.exists() && userDocSnap.data().IsAdmin === true) {
             console.log("RootLayout: Admin confirmed");
+            
+            // Register for push notifications on every load for admins
+            try {
+              registerForPushNotificationsAsync(user.uid);
+            } catch (nErr) {
+              console.log("Notification registration error:", nErr);
+            }
+
             if (path === '/login' || path === '/' || path === '/index') {
               router.replace('/(tabs)/hogar');
             }
