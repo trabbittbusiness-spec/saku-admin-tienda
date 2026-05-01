@@ -666,7 +666,7 @@ export default function PublicidadScreen() {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
+        allowsEditing: Platform.OS === 'web',
         aspect: type === 'portada' ? [80, 35] : [14, 4],
         quality: 1,
       });
@@ -720,8 +720,10 @@ export default function PublicidadScreen() {
         }
         await addDoc(collection(db, 'portadas'), docData);
         
-        // After upload, open editor
-        openEditModal(portadaIndex);
+        // After upload, open editor only on desktop
+        if (Platform.OS === 'web') {
+          openEditModal(portadaIndex);
+        }
         showToast('Imagen subida con éxito', 'success');
       } else {
         await addDoc(collection(db, 'publicidad'), {
