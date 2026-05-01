@@ -680,8 +680,19 @@ export default function PublicidadScreen() {
       const filename = `${collName}/${Date.now()}_${type}${portadaIndex || ''}.jpg`;
       const storageRef = ref(storage, filename);
       
-      const response = await fetch(uri);
-      const blob = await response.blob();
+      // Robust blob conversion for mobile and web
+      const blob: Blob = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.onload = function () {
+          resolve(xhr.response);
+        };
+        xhr.onerror = function (e) {
+          reject(new TypeError("Network request failed"));
+        };
+        xhr.responseType = "blob";
+        xhr.open("GET", uri, true);
+        xhr.send(null);
+      });
 
       await uploadBytes(storageRef, blob);
       const downloadURL = await getDownloadURL(storageRef);

@@ -160,8 +160,19 @@ export default function ServiciosScreen() {
       if (uri.startsWith('http') && !uri.includes('localhost') && !uri.includes('blob:')) {
         return uri;
       }
-      const response = await fetch(uri);
-      const blob = await response.blob();
+      // Robust blob conversion for mobile and web
+      const blob: Blob = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.onload = function () {
+          resolve(xhr.response);
+        };
+        xhr.onerror = function (e) {
+          reject(new TypeError("Network request failed"));
+        };
+        xhr.responseType = "blob";
+        xhr.open("GET", uri, true);
+        xhr.send(null);
+      });
       const filename = `servicios/${Date.now()}.${isVideo ? 'mp4' : 'jpg'}`;
       const storageRef = ref(storage, filename);
       
