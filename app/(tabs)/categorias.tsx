@@ -268,11 +268,11 @@ export default function CategoriasScreen() {
         </TouchableOpacity>
       )}
 
-      {/* Modal Nueva / Editar Categoría */}
       {isModalVisible && (
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
+        <View style={[styles.modalOverlay, !isDesktop && styles.modalOverlayMobile]}>
+          <View style={[styles.modalContent, !isDesktop && styles.modalContentMobile]}>
+            <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
+              <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
                 {editingItem ? 'Editar' : 'Nueva'} {selectedTab === 'Categorias' ? 'Categoría' : 'Marca'}
               </Text>
@@ -440,6 +440,7 @@ export default function CategoriasScreen() {
                 )}
               </TouchableOpacity>
             </View>
+            </ScrollView>
           </View>
         </View>
       )}
@@ -523,10 +524,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center', zIndex: 100,
     padding: 24
   },
+  modalOverlayMobile: {
+    padding: 0,
+    backgroundColor: '#fff',
+  },
   modalContent: {
     width: Platform.OS === 'web' ? 500 : '88%',
     backgroundColor: '#fff', borderRadius: 24, padding: 24,
     shadowColor: '#000', shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.15, shadowRadius: 30, elevation: 20
+  },
+  modalContentMobile: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 0,
+    padding: 24,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
   },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontSize: 18, fontWeight: '900', color: '#0F172A' },
