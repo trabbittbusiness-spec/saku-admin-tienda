@@ -33,6 +33,7 @@ export default function AgendaScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [statusFilter, setStatusFilter] = useState('Pendientes');
   const [miniCalMonth, setMiniCalMonth] = useState(new Date());
+  const [touchStart, setTouchStart] = useState<number | null>(null);
   
   // Agenda Configuration
   const [customHours, setCustomHours] = useState<string[]>(['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00']);
@@ -517,8 +518,38 @@ export default function AgendaScreen() {
       return d;
     });
 
+    const handleTouchStart = (e: any) => {
+      if (Platform.OS === 'web') return;
+      setTouchStart(e.nativeEvent.pageX);
+    };
+
+    const handleTouchEnd = (e: any) => {
+      if (Platform.OS === 'web' || touchStart === null) return;
+      const touchEnd = e.nativeEvent.pageX;
+      const dx = touchEnd - touchStart;
+      
+      if (Math.abs(dx) > 60) {
+        const d = new Date(selectedDate);
+        if (dx < -60) {
+          // Swipe Left (Finger moves <-)
+          // User: "deslizar a la izquierda cambia hacia tras"
+          d.setDate(d.getDate() - 1);
+        } else {
+          // Swipe Right (Finger moves ->)
+          // User: "hacia la derecha muestra las siguientes"
+          d.setDate(d.getDate() + 1);
+        }
+        setSelectedDate(d);
+      }
+      setTouchStart(null);
+    };
+
     return (
-      <View style={styles.mobileContainer}>
+      <View 
+        style={styles.mobileContainer}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
         {/* Mobile Header */}
         <View style={styles.mobileHeader}>
           <View style={styles.mobileHeaderSide}>
