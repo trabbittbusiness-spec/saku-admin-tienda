@@ -20,8 +20,8 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Animated } from 'react-native';
-import { auth, storage } from '../../../lib/firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { auth } from '../../../lib/firebase';
+import { uploadMedia } from '../../../lib/uploadMedia';
 
 interface InputProps {
   label: string;
@@ -352,17 +352,11 @@ export default function EditarProductoScreen() {
 
     try {
       const userId = auth.currentUser?.uid || 'anonymous';
-      const response = await fetch(uri);
-      const blob = await response.blob();
-      
       const timestamp = Date.now() + Math.floor(Math.random() * 1000).toString();
-      const filename = `${timestamp}.jpg`;
-      const storageRef = ref(storage, `users/${userId}/uploads/${filename}`);
-      
-      await uploadBytes(storageRef, blob);
-      return await getDownloadURL(storageRef);
+      const storagePath = `users/${userId}/uploads/${timestamp}.jpg`;
+      return await uploadMedia(uri, storagePath);
     } catch (error) {
-      console.error("Error uploading image:", error);
+      console.error('Error uploading image:', error);
       return uri; // Return original if upload fails
     }
   };

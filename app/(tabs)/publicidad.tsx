@@ -29,7 +29,8 @@ import {
   serverTimestamp,
   orderBy 
 } from 'firebase/firestore';
-import { ref, uploadBytes, uploadString, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, getDownloadURL, deleteObject } from 'firebase/storage';
+import { uploadMedia } from '../../lib/uploadMedia';
 
 function Toast({ visible, message, type, onHide }: { visible: boolean; message: string; type: 'success' | 'error'; onHide: () => void }) {
   const [fadeAnim] = useState(new Animated.Value(0));
@@ -669,22 +670,18 @@ export default function PublicidadScreen() {
         allowsEditing: Platform.OS === 'web',
         aspect: type === 'portada' ? [80, 35] : [14, 4],
         quality: 1,
-        base64: true, // Request base64 to bypass local network request issues
       });
 
-      if (result.canceled || !result.assets[0].base64) return;
+      if (result.canceled) return;
 
       setUploading(true);
       const uri = result.assets[0].uri;
-      const base64 = result.assets[0].base64;
       const collName = type === 'portada' ? 'portadas' : 'publicidad';
       
       const filename = `${collName}/${Date.now()}_${type}${portadaIndex || ''}.jpg`;
-      const storageRef = ref(storage, filename);
 
-      // Use uploadString with base64 to completely avoid fetch/XHR issues on mobile
-      await uploadString(storageRef, base64, 'base64', { contentType: 'image/jpeg' });
-      const downloadURL = await getDownloadURL(storageRef);
+      // Uses native file upload on mobile, fetch+blob on web
+      const downloadURL = await uploadMedia(uri, filename);
 
       if (type === 'portada' && editVisible && editingItem) {
         // Just update the editing state, don't save to Firestore yet
