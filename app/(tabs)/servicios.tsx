@@ -21,16 +21,7 @@ import { collection, query, onSnapshot, addDoc, doc, updateDoc, deleteDoc, serve
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../lib/firebase';
 import * as ImagePicker from 'expo-image-picker';
-// Safely import Video and ResizeMode to avoid crashes in environments without expo-av
-let Video: any = View;
-let ResizeMode: any = { COVER: 'cover', CONTAIN: 'contain', STRETCH: 'stretch', REPEAT: 'repeat', CENTER: 'center' };
-try {
-  const ExpoAV = require('expo-av');
-  Video = ExpoAV.Video;
-  ResizeMode = ExpoAV.ResizeMode;
-} catch (e) {
-  console.warn('expo-av could not be loaded:', e);
-}
+import { Video, ResizeMode } from 'expo-av';
 
 export default function ServiciosScreen() {
   const { width } = useWindowDimensions();
@@ -562,6 +553,7 @@ export default function ServiciosScreen() {
                         shouldPlay
                         isLooping
                         isMuted={adminMuted}
+                        useNativeControls
                       />
                       <TouchableOpacity 
                         style={[styles.removeBadge, { left: 16 }]} 
