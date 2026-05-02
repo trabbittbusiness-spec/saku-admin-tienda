@@ -247,7 +247,9 @@ export default function HogarScreen() {
         <View style={styles.mainHeader}>
           <View style={styles.welcomeSection}>
             <Text style={styles.welcomeTitle}>¡Hola, {userData?.display_name?.split(' ')[0] || 'Admin'}! 👋</Text>
+            <Text style={{ fontSize: 10, color: '#94A3B8' }}>UID: {auth.currentUser?.uid}</Text>
             <Text style={styles.welcomeSubtitle}>Aquí tienes el resumen del ecosistema Saku hoy.</Text>
+            
           </View>
           {!isDesktop && (
             <TouchableOpacity 
@@ -349,7 +351,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#ffffff' },
   content: { padding: 16, paddingBottom: 100 },
   contentDesktop: { padding: 32, width: '100%' },
-  mainHeader: { marginBottom: 28, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  mainHeader: { marginBottom: 28, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   welcomeSection: { flex: 1 },
   welcomeTitle: { fontSize: 26, fontWeight: '900', color: '#0F172A', letterSpacing: -1.2 },
   welcomeSubtitle: { fontSize: 14, color: '#64748B', marginTop: 4, fontWeight: '600' },

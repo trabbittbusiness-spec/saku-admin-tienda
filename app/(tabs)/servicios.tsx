@@ -21,16 +21,7 @@ import { collection, query, onSnapshot, addDoc, doc, updateDoc, deleteDoc, serve
 import { db } from '../../lib/firebase';
 import { uploadMedia } from '../../lib/uploadMedia';
 import * as ImagePicker from 'expo-image-picker';
-// Safe import for expo-av to prevent crash if native module is missing
-let Video: any = View;
-let ResizeMode: any = { COVER: 'cover', CONTAIN: 'contain', STRETCH: 'stretch' };
-try {
-  const ExpoAV = require('expo-av');
-  Video = ExpoAV.Video;
-  ResizeMode = ExpoAV.ResizeMode;
-} catch (e) {
-  console.warn("expo-av native module not found");
-}
+import { useVideoPlayer, VideoView } from 'expo-video';
 
 export default function ServiciosScreen() {
   const { width } = useWindowDimensions();
@@ -55,6 +46,18 @@ export default function ServiciosScreen() {
   const [disponibilidad, setDisponibilidad] = useState(true);
   const [saving, setSaving] = useState(false);
   const [adminMuted, setAdminMuted] = useState(false);
+  
+  const player = useVideoPlayer(video, player => {
+    player.loop = true;
+    player.muted = adminMuted;
+    player.play();
+  });
+
+  useEffect(() => {
+    if (player) {
+      player.muted = adminMuted;
+    }
+  }, [adminMuted, player]);
   
   // Mascotas Config State
   const [requiresPetDetails, setRequiresPetDetails] = useState(false);
@@ -548,14 +551,13 @@ export default function ServiciosScreen() {
                 <TouchableOpacity style={[styles.imagePicker, { height: 160 }]} onPress={pickVideo} activeOpacity={0.8}>
                   {video ? (
                     <View style={styles.imagePreviewContainer}>
-                      <Video
-                        source={{ uri: video }}
+                      <VideoView
+                        player={player}
                         style={styles.imagePreview}
-                        resizeMode={ResizeMode.COVER}
-                        shouldPlay
-                        isLooping
-                        isMuted={adminMuted}
-                        useNativeControls
+                        contentFit="cover"
+                        allowsFullscreen
+                        allowsPictureInPicture
+                        nativeControls
                       />
                       <TouchableOpacity 
                         style={[styles.removeBadge, { left: 16 }]} 
@@ -937,12 +939,12 @@ const styles = StyleSheet.create({
 
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 20 },
   card: {
-    width: '100%', backgroundColor: '#fff', borderRadius: 20,
+    width: Platform.OS === 'web' ? '31%' : '48%', backgroundColor: '#fff', borderRadius: 20,
     borderWidth: 1, borderColor: '#F1F5F9', overflow: 'hidden',
     shadowColor: '#63348C', shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.06, shadowRadius: 24, marginBottom: 4,
   },
-  imgBox: { height: 160, backgroundColor: '#F8FAFC', position: 'relative' },
+  imgBox: { height: Platform.OS === 'web' ? 160 : 120, backgroundColor: '#F8FAFC', position: 'relative' },
   productImg: { width: '100%', height: '100%' },
   imgGradient: {
     position: 'absolute', bottom: 0, left: 0, right: 0, height: 70,
@@ -962,8 +964,8 @@ const styles = StyleSheet.create({
   },
   pricePillText: { fontSize: 13, fontWeight: '900', color: '#fff' },
 
-  cardBody: { padding: 18 },
-  cardName: { fontSize: 17, fontWeight: '900', color: '#0F172A', marginBottom: 8, letterSpacing: -0.3 },
+  cardBody: { padding: Platform.OS === 'web' ? 18 : 12 },
+  cardName: { fontSize: Platform.OS === 'web' ? 17 : 14, fontWeight: '900', color: '#0F172A', marginBottom: 4, letterSpacing: -0.3 },
   cardCatContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
   cardCatBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F1F5F9', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
   cardCatText: { fontSize: 10, fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: 0.3 },
@@ -988,13 +990,13 @@ const styles = StyleSheet.create({
   statusToggleThumb: { width: 10, height: 10, borderRadius: 5 },
   statusToggleThumbOn: { backgroundColor: '#10B981' },
   statusToggleThumbOff: { backgroundColor: '#CBD5E1' },
-  statusToggleLabel: { fontSize: 12, fontWeight: '700' },
+  statusToggleLabel: { fontSize: 10, fontWeight: '700' },
   cardActions: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   editBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     backgroundColor: '#F5F3FF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12,
   },
-  editBtnText: { fontSize: 12, fontWeight: '700', color: '#63348C' },
+  editBtnText: { fontSize: 10, fontWeight: '700', color: '#63348C' },
   delBtn: {
     width: 34, height: 34, borderRadius: 12,
     backgroundColor: '#FFF5F5', alignItems: 'center', justifyContent: 'center',

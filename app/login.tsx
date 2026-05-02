@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     height: '100%',
-    backgroundColor: '#0F172A',
+    backgroundColor: '#000000',
   },
 
   keyboardView: {
@@ -316,7 +316,7 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 60,
     backgroundColor: '#63348C',
-    padding: 25,
+    padding: 10,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -326,8 +326,8 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
   },
   logoImage: {
-    width: '85%',
-    height: '85%',
+    width: '100%',
+    height: '100%',
   },
 
   title: {

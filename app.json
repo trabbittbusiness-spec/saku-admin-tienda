@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "saku-tienda-web",
-    "slug": "saku-tienda-web",
+    "name": "Saku Admin",
+    "slug": "saku-admin",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/logo_saku_cl.png",
-    "scheme": "sakutiendaweb",
+    "scheme": "sakuadmin",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/images/logo_saku_cl.png",
@@ -17,11 +17,12 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#ffffff",
         "foregroundImage": "./assets/images/logo_saku_cl.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.lusvin502gt.sakutiendaweb"
+      "package": "com.SAKUAMIN.COM",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "bundler": "metro",
@@ -32,10 +33,21 @@
       "expo-router",
       "expo-font",
       "expo-notifications",
-      "expo-av"
+      "expo-video"
     ],
+    "notification": {
+      "icon": "./assets/images/logo_saku_cl.png",
+      "color": "#63348C"
+    },
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "f265ac07-beb1-47d5-9f6d-d37926115187"
+      }
+    },
+    "owner": "lusvin502gt"
   }
 }

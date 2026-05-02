@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "936867850434",
+    "project_id": "sakuchile",
+    "storage_bucket": "sakuchile.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:936867850434:android:ac34fe22f5e8468eee735b",
+        "android_client_info": {
+          "package_name": "com.SAKUAMIN.COM"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDvTl4S8G_LTca5fGsrUkjZX0rROvhmrd0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:936867850434:android:e956781bff79521fee735b",
+        "android_client_info": {
+          "package_name": "com.SAKUtienda.cl"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDvTl4S8G_LTca5fGsrUkjZX0rROvhmrd0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -52,3 +52,7 @@ logs_new.txt
 # data
 users.json
 /scratch
+
+# Builds
+*.apk
+*.aab

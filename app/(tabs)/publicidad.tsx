@@ -22,6 +22,7 @@ import { db, storage } from '../../lib/firebase';
 import { 
   collection, 
   addDoc, 
+  setDoc,
   query, 
   onSnapshot, 
   deleteDoc, 
@@ -109,22 +110,35 @@ function EditPortadaModal({
   loading,
   onPickImage,
   availableCategories,
-  availableBrands
+  availableBrands,
+  availableServiceCategories,
+  availableAnimals
 }: { 
   visible: boolean; 
   onCancel: () => void; 
-  onSave: () => void; 
+  onSave: (item: any) => Promise<void>;
   item: any;
   setItem: (val: any) => void;
   loading: boolean;
   onPickImage: () => void;
   availableCategories?: string[];
   availableBrands?: string[];
+  availableServiceCategories?: any[];
+  availableAnimals?: string[];
 }) {
   const { width: windowWidth } = useWindowDimensions();
   const isMobile = windowWidth < 1024;
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   if (!visible || !item) return null;
+
+  const handleSave = async () => {
+    await onSave(item);
+    setSaveSuccess(true);
+    setTimeout(() => {
+      setSaveSuccess(false);
+    }, 2000);
+  };
 
   const colors = [
     { name: 'Saku Indigo', hex: '#0A0A2E' },
@@ -170,21 +184,26 @@ function EditPortadaModal({
               <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '700' }}>{isMobile ? 'Salir' : 'Descartar'}</Text>
             </TouchableOpacity>
             <TouchableOpacity 
-              onPress={onSave}
-              disabled={loading}
+              onPress={handleSave}
+              disabled={loading || saveSuccess}
               style={{ 
                 paddingHorizontal: isMobile ? 14 : 22, 
                 paddingVertical: 10, 
                 borderRadius: 10, 
-                backgroundColor: '#63348C', 
+                backgroundColor: saveSuccess ? '#10B981' : '#10B981', 
                 flexDirection: 'row', 
                 alignItems: 'center', 
                 gap: 8,
-                shadowColor: '#63348C', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8
+                shadowColor: '#10B981', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8
               }}
             >
               {loading ? (
                 <ActivityIndicator size="small" color="#fff" />
+              ) : saveSuccess ? (
+                <>
+                  <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>¡Guardado con éxito!</Text>
+                  <Ionicons name="checkmark-circle" size={16} color="#fff" />
+                </>
               ) : (
                 <>
                   <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>{isMobile ? 'Listo' : 'Guardar y Publicar'}</Text>
@@ -409,73 +428,148 @@ function EditPortadaModal({
                   </View>
                 </View>
 
-                {/* SECCIÓN ETIQUETAS */}
+                {/* SECCIÓN DESTINO */}
                 <View style={{ gap: 20, marginTop: 24 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <Ionicons name="pricetags-outline" size={16} color="#63348C" />
-                    <Text style={{ color: '#475569', fontSize: 11, fontWeight: '800', letterSpacing: 0.5 }}>ETIQUETAS Y FILTROS</Text>
-                  </View>
-                  
-                  {/* Categorías */}
-                  <View>
-                    <Text style={{ color: '#64748B', fontSize: 10, marginBottom: 8, fontWeight: '700' }}>Categorías Asociadas</Text>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                      {Array.from(new Set(availableCategories || [])).map((cat: string, index: number) => {
-                        const isSelected = (item.categorias || []).includes(cat);
-                        return (
-                          <TouchableOpacity
-                            key={`cat-${cat}-${index}`}
-                            onPress={() => {
-                              const cats = item.categorias || [];
-                              if (isSelected) {
-                                setItem({ ...item, categorias: cats.filter((c: string) => c !== cat) });
-                              } else {
-                                setItem({ ...item, categorias: [...cats, cat] });
-                              }
-                            }}
-                            style={{
-                              paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12,
-                              backgroundColor: isSelected ? '#63348C' : '#F8FAFC',
-                              borderWidth: 1, borderColor: isSelected ? '#63348C' : '#E2E8F0',
-                            }}
-                          >
-                            <Text style={{ color: isSelected ? '#fff' : '#64748B', fontSize: 12, fontWeight: isSelected ? '800' : '600' }}>{cat}</Text>
-                          </TouchableOpacity>
-                        );
-                      })}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      <Ionicons name="navigate-outline" size={16} color="#63348C" />
+                      <Text style={{ color: '#475569', fontSize: 11, fontWeight: '800', letterSpacing: 0.5 }}>DESTINO DEL CLIC</Text>
                     </View>
-                  </View>
 
-                  {/* Marcas */}
-                  <View style={{ marginTop: 4 }}>
-                    <Text style={{ color: '#64748B', fontSize: 10, marginBottom: 8, fontWeight: '700' }}>Marcas Asociadas</Text>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                      {Array.from(new Set(availableBrands || [])).map((brand: string, index: number) => {
-                        const isSelected = (item.marcas || []).includes(brand);
-                        return (
-                          <TouchableOpacity
-                            key={`brand-${brand}-${index}`}
-                            onPress={() => {
-                              const brands = item.marcas || [];
-                              if (isSelected) {
-                                setItem({ ...item, marcas: brands.filter((b: string) => b !== brand) });
-                              } else {
-                                setItem({ ...item, marcas: [...brands, brand] });
-                              }
-                            }}
-                            style={{
-                              paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12,
-                              backgroundColor: isSelected ? '#63348C' : '#F8FAFC',
-                              borderWidth: 1, borderColor: isSelected ? '#63348C' : '#E2E8F0',
-                            }}
-                          >
-                            <Text style={{ color: isSelected ? '#fff' : '#64748B', fontSize: 12, fontWeight: isSelected ? '800' : '600' }}>{brand}</Text>
-                          </TouchableOpacity>
-                        );
-                      })}
+                    {/* Selector de tipo de destino */}
+                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                      {['ninguno', 'servicios', 'productos'].map((dest) => (
+                        <TouchableOpacity
+                          key={dest}
+                          onPress={() => setItem({ ...item, tipoDestino: dest })}
+                          style={{
+                            flex: 1, paddingVertical: 10, borderRadius: 12, alignItems: 'center',
+                            backgroundColor: item.tipoDestino === dest ? '#63348C' : '#F8FAFC',
+                            borderWidth: 1, borderColor: item.tipoDestino === dest ? '#63348C' : '#E2E8F0',
+                          }}
+                        >
+                          <Text style={{ 
+                            color: item.tipoDestino === dest ? '#fff' : '#64748B', 
+                            fontSize: 11, fontWeight: '800', textTransform: 'capitalize' 
+                          }}>
+                            {dest}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
                     </View>
+
+                    {/* Filtros específicos para Servicios */}
+                    {item.tipoDestino === 'servicios' && (
+                      <View style={{ backgroundColor: '#F8FAFC', padding: 16, borderRadius: 16, gap: 12 }}>
+                        <Text style={{ color: '#475569', fontSize: 10, fontWeight: '800' }}>CATEGORÍA DE SERVICIO</Text>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                          {availableServiceCategories?.map((cat) => {
+                            const isSelected = item.filtroServicioCat === cat.id;
+                            return (
+                              <TouchableOpacity
+                                key={cat.id}
+                                onPress={() => setItem({ ...item, filtroServicioCat: isSelected ? null : cat.id })}
+                                style={{
+                                  paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10,
+                                  backgroundColor: isSelected ? '#63348C' : '#fff',
+                                  borderWidth: 1, borderColor: isSelected ? '#63348C' : '#E2E8F0',
+                                }}
+                              >
+                                <Text style={{ color: isSelected ? '#fff' : '#64748B', fontSize: 11, fontWeight: '700' }}>{cat.nombre}</Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    )}
+
+                    {/* Filtros específicos para Productos */}
+                    {item.tipoDestino === 'productos' && (
+                      <View style={{ backgroundColor: '#F8FAFC', padding: 16, borderRadius: 16, gap: 20 }}>
+                        
+                        {/* Animales */}
+                        <View>
+                          <Text style={{ color: '#475569', fontSize: 10, fontWeight: '800', marginBottom: 10 }}>ANIMALES</Text>
+                          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                            {availableAnimals?.map((animal) => {
+                              const isSelected = (item.filtroAnimales || []).includes(animal);
+                              return (
+                                <TouchableOpacity
+                                  key={animal}
+                                  onPress={() => {
+                                    const animals = item.filtroAnimales || [];
+                                    if (isSelected) setItem({ ...item, filtroAnimales: animals.filter((a: string) => a !== animal) });
+                                    else setItem({ ...item, filtroAnimales: [...animals, animal] });
+                                  }}
+                                  style={{
+                                    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10,
+                                    backgroundColor: isSelected ? '#63348C' : '#fff',
+                                    borderWidth: 1, borderColor: isSelected ? '#63348C' : '#E2E8F0',
+                                  }}
+                                >
+                                  <Text style={{ color: isSelected ? '#fff' : '#64748B', fontSize: 11, fontWeight: '700' }}>{animal}</Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                        </View>
+
+                        {/* Categorías de Producto */}
+                        <View>
+                          <Text style={{ color: '#475569', fontSize: 10, fontWeight: '800', marginBottom: 10 }}>CATEGORÍAS DE PRODUCTO</Text>
+                          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                            {availableCategories?.map((cat) => {
+                              const isSelected = (item.filtroCategorias || []).includes(cat);
+                              return (
+                                <TouchableOpacity
+                                  key={cat}
+                                  onPress={() => {
+                                    const cats = item.filtroCategorias || [];
+                                    if (isSelected) setItem({ ...item, filtroCategorias: cats.filter((c: string) => c !== cat) });
+                                    else setItem({ ...item, filtroCategorias: [...cats, cat] });
+                                  }}
+                                  style={{
+                                    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10,
+                                    backgroundColor: isSelected ? '#63348C' : '#fff',
+                                    borderWidth: 1, borderColor: isSelected ? '#63348C' : '#E2E8F0',
+                                  }}
+                                >
+                                  <Text style={{ color: isSelected ? '#fff' : '#64748B', fontSize: 11, fontWeight: '700' }}>{cat}</Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                        </View>
+
+                        {/* Marcas de Producto */}
+                        <View>
+                          <Text style={{ color: '#475569', fontSize: 10, fontWeight: '800', marginBottom: 10 }}>MARCAS DE PRODUCTO</Text>
+                          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                            {availableBrands?.map((brand) => {
+                              const isSelected = (item.filtroMarcas || []).includes(brand);
+                              return (
+                                <TouchableOpacity
+                                  key={brand}
+                                  onPress={() => {
+                                    const brands = item.filtroMarcas || [];
+                                    if (isSelected) setItem({ ...item, filtroMarcas: brands.filter((b: string) => b !== brand) });
+                                    else setItem({ ...item, filtroMarcas: [...brands, brand] });
+                                  }}
+                                  style={{
+                                    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10,
+                                    backgroundColor: isSelected ? '#63348C' : '#fff',
+                                    borderWidth: 1, borderColor: isSelected ? '#63348C' : '#E2E8F0',
+                                  }}
+                                >
+                                  <Text style={{ color: isSelected ? '#fff' : '#64748B', fontSize: 11, fontWeight: '700' }}>{brand}</Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                        </View>
+
+                      </View>
+                    )}
                   </View>
-                </View>
 
 
 
@@ -515,14 +609,22 @@ export default function PublicidadScreen() {
     subtitle: string;
     buttonText: string;
     backgroundColor: string;
-    imageUrl?: string;
-    storagePath?: string;
     categorias?: string[];
     marcas?: string[];
+    tipoDestino: string;
+    filtroServicioCat?: string | null;
+    filtroAnimales?: string[];
+    filtroCategorias?: string[];
+    filtroMarcas?: string[];
+    type?: string;
+    collection?: string;
+    [key: string]: any;
   } | null>(null);
 
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
   const [availableBrands, setAvailableBrands] = useState<string[]>([]);
+  const [availableServiceCategories, setAvailableServiceCategories] = useState<any[]>([]);
+  const [availableAnimals] = useState<string[]>(['Perro', 'Gato', 'Erizo', 'Guinea', 'Aves', 'Conejo', 'Hámster', 'Tortugas', 'Hurón']);
 
   const [toast, setToast] = useState<{ visible: boolean; message: string; type: 'success' | 'error' }>({
     visible: false,
@@ -559,7 +661,6 @@ export default function PublicidadScreen() {
     setSendingCampaign(true);
     try {
       // Solo necesitamos crear UN documento en NewsletterCampaigns
-      // La Cloud Function 'onNewsletterCampaignCreated' se encargará del envío masivo
       await addDoc(collection(db, 'NewsletterCampaigns'), {
         title: campaignTitle,
         body: campaignBody,
@@ -593,12 +694,19 @@ export default function PublicidadScreen() {
 
     const unsubCats = onSnapshot(query(collection(db, 'Categorias_name')), (snapshot) => {
       const cats = snapshot.docs.map(doc => doc.data().nombre || doc.data().name).filter(Boolean);
-      setAvailableCategories(cats);
+      const uniqueCats = Array.from(new Set(cats));
+      setAvailableCategories(uniqueCats);
     });
 
     const unsubBrands = onSnapshot(query(collection(db, 'Marca_name')), (snapshot) => {
       const brands = snapshot.docs.map(doc => doc.data().nombre || doc.data().name).filter(Boolean);
-      setAvailableBrands(brands);
+      const uniqueBrands = Array.from(new Set(brands));
+      setAvailableBrands(uniqueBrands);
+    });
+
+    const unsubServiceCats = onSnapshot(query(collection(db, 'CategoriasServicios')), (snapshot) => {
+      const cats = snapshot.docs.map(doc => ({ id: doc.id, nombre: doc.data().nombre }));
+      setAvailableServiceCategories(cats);
     });
 
     return () => {
@@ -606,6 +714,7 @@ export default function PublicidadScreen() {
       unsubPortadas();
       unsubCats();
       unsubBrands();
+      unsubServiceCats();
     };
   }, []);
 
@@ -622,8 +731,11 @@ export default function PublicidadScreen() {
     }
 
     setEditingItem({
+      ...(existing || {}),
       id: existing?.id,
       index: idx,
+      type: existing?.type || existing?.tipo || (typeof itemOrIdx === 'object' ? itemOrIdx.type : undefined),
+      collection: typeof itemOrIdx === 'number' ? 'portadas' : (existing?.type || existing?.tipo || itemOrIdx.type ? 'publicidad' : 'portadas'),
       badge: existing?.badge || '',
       title: existing?.title || '',
       subtitle: existing?.subtitle || '',
@@ -632,31 +744,61 @@ export default function PublicidadScreen() {
       imageUrl: existing?.imageUrl,
       storagePath: existing?.storagePath,
       categorias: existing?.categorias || [],
-      marcas: existing?.marcas || []
+      marcas: existing?.marcas || [],
+      tipoDestino: existing?.tipoDestino || 'ninguno',
+      filtroServicioCat: existing?.filtroServicioCat || null,
+      filtroAnimales: existing?.filtroAnimales || [],
+      filtroCategorias: existing?.filtroCategorias || [],
+      filtroMarcas: existing?.filtroMarcas || []
     });
     setEditVisible(true);
   };
 
-  const savePortadaInfo = async () => {
-    if (!editingItem) return;
+  const savePortadaInfo = async (itemToSave: any) => {
+    if (!itemToSave) return;
     setUploading(true);
     try {
       const docData = {
-        ...editingItem,
-        index: Number(editingItem.index),
+        ...itemToSave,
+        index: itemToSave.index !== undefined ? Number(itemToSave.index) : 0,
         updatedAt: serverTimestamp(),
       };
 
-      if (editingItem.id) {
-        await deleteDoc(doc(db, 'portadas', editingItem.id));
+      const { id, collection: targetColl, ...dataToSave } = docData;
+      // If it has an index (1-4) it's likely a Portada, else it's a Slider (publicidad)
+      const finalColl = targetColl || (itemToSave.index !== undefined && Number(itemToSave.index) > 0 ? 'portadas' : 'publicidad');
+      
+      console.log(`[DEBUG] SAVE INITIATED`);
+      console.log(`[DEBUG] Target Collection: ${finalColl}`);
+      console.log(`[DEBUG] Document ID: ${id || 'NEW'}`);
+      console.log(`[DEBUG] Data to save:`, JSON.stringify(dataToSave, null, 2));
+
+      // Only add 'type' and 'tipo' for Sliders (publicidad collection)
+      const finalData: any = { ...dataToSave };
+      if (finalColl === 'publicidad') {
+        finalData.type = dataToSave.type || dataToSave.tipo || 'desktop';
+        finalData.tipo = dataToSave.type || dataToSave.tipo || 'desktop';
+      }
+
+      // CRITICAL: Remove any 'undefined' values before saving to Firestore
+      Object.keys(finalData).forEach(key => {
+        if (finalData[key] === undefined) {
+          delete finalData[key];
+        }
+      });
+
+      if (id) {
+        console.log(`[DEBUG] Executing setDoc on ${finalColl}/${id}`);
+        await setDoc(doc(db, finalColl, id), finalData);
+      } else {
+        console.log(`[DEBUG] Executing addDoc on ${finalColl}`);
+        await addDoc(collection(db, finalColl), finalData);
       }
       
-      const { id, ...dataToSave } = docData;
-      await addDoc(collection(db, 'portadas'), dataToSave);
-      
       setEditVisible(false);
-      showToast('¡Banner configurado correctamente!');
+      showToast('¡Configuración guardada con éxito!', 'success');
     } catch (error) {
+      console.error('Error saving banner:', error);
       showToast('Error al guardar', 'error');
     } finally {
       setUploading(false);
@@ -683,7 +825,7 @@ export default function PublicidadScreen() {
       // Uses native file upload on mobile, fetch+blob on web
       const downloadURL = await uploadMedia(uri, filename);
 
-      if (type === 'portada' && editVisible && editingItem) {
+      if (editVisible && editingItem) {
         // Just update the editing state, don't save to Firestore yet
         setEditingItem({
           ...editingItem,
@@ -709,6 +851,11 @@ export default function PublicidadScreen() {
           backgroundColor: existing?.backgroundColor || '#0A0A2E',
           categorias: existing?.categorias || [],
           marcas: existing?.marcas || [],
+          tipoDestino: existing?.tipoDestino || 'ninguno',
+          filtroServicioCat: existing?.filtroServicioCat || null,
+          filtroAnimales: existing?.filtroAnimales || [],
+          filtroCategorias: existing?.filtroCategorias || [],
+          filtroMarcas: existing?.filtroMarcas || [],
           createdAt: serverTimestamp(),
         };
 
@@ -794,6 +941,8 @@ export default function PublicidadScreen() {
         onPickImage={() => pickAndUpload('portada', editingItem?.index)}
         availableCategories={availableCategories}
         availableBrands={availableBrands}
+        availableServiceCategories={availableServiceCategories}
+        availableAnimals={availableAnimals}
       />
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <View style={[styles.header, isDesktop && styles.headerDesktop]}>
@@ -898,8 +1047,8 @@ export default function PublicidadScreen() {
                 </View>
 
                 <View style={styles.bannerGrid}>
-                  {banners.filter(b => b.type === section.id).length > 0 ? (
-                    banners.filter(b => b.type === section.id).map((banner) => (
+                  {banners.filter(b => (b.type || b.tipo) === section.id).length > 0 ? (
+                    banners.filter(b => (b.type || b.tipo) === section.id).map((banner) => (
                       <View 
                         key={banner.id} 
                         style={[
@@ -910,12 +1059,20 @@ export default function PublicidadScreen() {
                         <View style={styles.imgContainer}>
                           <Image source={{ uri: banner.imageUrl }} style={styles.bannerImg} resizeMode="cover" />
                           <View style={styles.cardOverlay}>
-                            <TouchableOpacity 
-                              style={styles.deleteBtn} 
-                              onPress={() => handleDelete(banner)}
-                            >
-                              <Ionicons name="trash-outline" size={16} color="#EF4444" />
-                            </TouchableOpacity>
+                            <View style={{ flexDirection: 'row', gap: 8 }}>
+                              <TouchableOpacity 
+                                style={[styles.deleteBtn, { backgroundColor: '#63348C' }]} 
+                                onPress={() => openEditModal({ ...banner, collection: 'publicidad' })}
+                              >
+                                <Ionicons name="create-outline" size={16} color="#fff" />
+                              </TouchableOpacity>
+                              <TouchableOpacity 
+                                style={styles.deleteBtn} 
+                                onPress={() => handleDelete({ ...banner, collection: 'publicidad' })}
+                              >
+                                <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                              </TouchableOpacity>
+                            </View>
                           </View>
                         </View>
                       </View>
@@ -1238,7 +1395,7 @@ const styles = StyleSheet.create({
     elevation: 10,
     gap: 12,
   },
-  toastSuccess: { backgroundColor: '#63348C' },
+  toastSuccess: { backgroundColor: '#10B981' },
   toastError: { backgroundColor: '#EF4444' },
   toastText: { flex: 1, color: '#fff', fontSize: 14, fontWeight: '700' },
   toastBtn: { backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },

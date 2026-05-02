@@ -43,23 +43,34 @@ export default function NotifyClientsModal({ visible, onClose }: Props) {
     if (!title.trim()) return;
     setSending(true);
     try {
-      // 1. Fetch only non-admin users
-      const usersSnap = await getDocs(query(collection(db, 'users'), where('IsAdmin', '==', false)));
-      const userRefsArr = usersSnap.docs.map(d => `users/${d.id}`);
-      const userRefsString = userRefsArr.join(',');
+      // 1. Fetch users
+      let usersSnap;
+      let userRefs;
+      
+      if (title.toUpperCase() === 'TEST') {
+        // Mode TEST: Only current user
+        console.log('TEST MODE: Sending only to current user');
+        const currentUserRef = doc(db, 'users', auth.currentUser?.uid || '');
+        userRefs = [currentUserRef];
+        usersSnap = { size: 1 };
+      } else {
+        // Mode ALL: Fetch everyone
+        usersSnap = await getDocs(collection(db, 'users'));
+        userRefs = usersSnap.docs.map(d => doc(db, 'users', d.id));
+      }
 
-      // 2. Create the notification document following the FF pattern
+      // 2. Create the notification document
       await addDoc(collection(db, 'ff_user_push_notifications'), {
-        initial_page_name: 'index', // Default page for customers
+        initial_page_name: 'index', 
         notification_text: description || 'Revisa las novedades en la app',
         notification_title: title,
         num_sent: usersSnap.size,
         parameter_data: '{}',
-        sender: doc(db, 'users', auth.currentUser?.uid || ''),
-        status: 'pending', // Trigger for the cloud function
+        sender: doc(db, 'users', auth.currentUser?.uid || 'system'),
+        status: 'pending', 
         app_target: 'tienda',
         timestamp: serverTimestamp(),
-        user_refs: userRefsString
+        user_refs: userRefs // Sending as an ARRAY of REFERENCES (Standard FF)
       });
 
       setSent(true);

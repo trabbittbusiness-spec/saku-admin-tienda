@@ -110,7 +110,7 @@ export default function RootLayout() {
   if (loading) {
     console.log("RootLayout: Still loading auth...");
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0F172A' }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000000' }}>
         <ActivityIndicator size="large" color="#63348C" />
         <Text style={{ marginTop: 20, color: '#fff', fontWeight: '700' }}>Iniciando Saku Admin...</Text>
       </View>
@@ -131,7 +131,7 @@ export default function RootLayout() {
         </View>
       )}
 
-      <Stack screenOptions={{ headerShown: false }}>
+      <Stack screenOptions={{ headerShown: false, animation: 'none' }}>
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

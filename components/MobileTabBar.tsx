@@ -79,7 +79,7 @@ export default function MobileTabBar({ state, navigation }: BottomTabBarProps) {
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: '#0F172A',
+    backgroundColor: '#000000',
     paddingTop: 10,
     paddingHorizontal: 8,
     borderTopLeftRadius: 24,

@@ -199,7 +199,7 @@ export default function DesktopSidebar({ open, isMobile, onClose }: Props) {
 const styles = StyleSheet.create({
   sidebar: {
     width: 240,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#000000',
     paddingTop: Platform.OS === 'web' ? 32 : 50,
     paddingHorizontal: 16,
     paddingBottom: 24,
@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
-    padding: 6,
+    padding: 0,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,

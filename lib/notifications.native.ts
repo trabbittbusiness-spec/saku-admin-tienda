@@ -1,19 +1,33 @@
+import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
-import { Platform } from 'react-native';
 import Constants from 'expo-constants';
-import { doc, collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
+import { Platform } from 'react-native';
+import { collection, serverTimestamp, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
 
-export async function registerForPushNotificationsAsync(userId: string) {
-  // En Android Expo Go, ni siquiera intentamos cargar el módulo
-  if (Platform.OS === 'android' && Constants.appOwnership === 'expo') {
-    console.warn('Push Notifications not supported in Expo Go Android.');
-    return null;
+// Configure how notifications should be handled when the app is foregrounded
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
+
+function showToast(msg: string) {
+  try {
+    const { Alert } = require('react-native');
+    Alert.alert('Notificaciones', msg);
+  } catch (e) {
+    console.log('Toast fallback:', msg);
   }
+}
+
+export async function registerForPushNotificationsAsync(userId: string) {
+    if (!userId) return 'ERROR: No userId provided';
+  if (Platform.OS === 'android' && Constants.appOwnership === 'expo') return 'ERROR: Expo Go no soportado';
 
   try {
-    const Notifications = require('expo-notifications');
-    
     let token;
 
     if (Platform.OS === 'android') {
@@ -21,42 +35,69 @@ export async function registerForPushNotificationsAsync(userId: string) {
         name: 'default',
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#FF231F7C',
+        lightColor: '#63348C',
       });
     }
 
-    if (Device.isDevice) {
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      let finalStatus = existingStatus;
-      if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-      }
-      if (finalStatus !== 'granted') {
-        console.log('Failed to get push token!');
-        return null;
-      }
-      
+    if (!Device.isDevice) return 'ERROR: Se requiere dispositivo físico';
+
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    
+    if (finalStatus !== 'granted') return 'ERROR: Permisos denegados (' + finalStatus + ')';
+
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId || "f265ac07-beb1-47d5-9f6d-d37926115187";
+    
+    try {
       token = (await Notifications.getDevicePushTokenAsync()).data;
+    } catch (e: any) {
+      try {
+        token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+      } catch (e2: any) {
+        return 'ERROR: Ambas llamadas fallaron. FCM: ' + e.message + ' | Expo: ' + e2.message;
+      }
     }
 
-    if (token && userId) {
-      const tokensRef = collection(db, 'users', userId, 'fcm_tokens');
-      const q = query(tokensRef, where('fcm_token', '==', token));
-      const snap = await getDocs(q);
+    if (!token) return 'ERROR: Token undefined/vacío';
+      
+    // Firestore
+    try {
+      const tokenData = {
+        fcm_token: token,
+        fcmToken: token,
+        pushToken: token,
+        device_type: Platform.OS === 'ios' ? 'iOS' : 'Android',
+        created_at: serverTimestamp(),
+        app: 'admin',
+      };
 
-      if (snap.empty) {
-        await addDoc(tokensRef, {
-          fcm_token: token,
-          device_type: Platform.OS.toUpperCase(),
-          created_at: serverTimestamp(),
-        });
-      }
+      const subRef = collection(db, 'users', userId, 'fcm_tokens');
+      const tokenDocRef = doc(subRef, token);
+      await setDoc(tokenDocRef, tokenData);
+
+      const userRef = doc(db, 'users', userId);
+      await setDoc(userRef, {
+        fcm_token: token,
+        fcmToken: token,
+        pushToken: token,
+        last_token_update: serverTimestamp(),
+        device_platform: Platform.OS,
+        last_app_use: 'admin'
+      }, { merge: true });
+      
+      showToast('¡Token FCM sincronizado!');
+
+    } catch (err: any) {
+      return 'ERROR Firestore: ' + err.message;
     }
 
     return token;
-  } catch (error) {
-    console.warn('Notification registration error:', error);
-    return null;
+  } catch (error: any) {
+    return 'ERROR general: ' + error.message;
   }
 }
