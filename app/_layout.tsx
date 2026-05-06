@@ -1,4 +1,5 @@
 import { router, Stack, usePathname } from 'expo-router';
+import Constants from 'expo-constants';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
@@ -7,7 +8,7 @@ import { useEffect, useState } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth, db } from '../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { View, Text, StyleSheet, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Platform, ActivityIndicator, AppState, Vibration } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { registerForPushNotificationsAsync } from '../lib/notifications';
 import '../global.css';
@@ -26,6 +27,7 @@ export default function RootLayout() {
 
   const [loading, setLoading] = useState(true);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [isAlarmActive, setIsAlarmActive] = useState(false);
   const currentPath = usePathname();
 
   useEffect(() => {
@@ -101,6 +103,150 @@ export default function RootLayout() {
     };
   }, [currentPath]);
 
+  // Persistent Alarm Logic
+  useEffect(() => {
+    let soundObject: any = null;
+    let vibrationInterval: NodeJS.Timeout | null = null;
+    
+    // Safely get native modules
+    const getAudio = () => {
+      try { return require('expo-audio'); } catch (e) { return null; }
+    };
+    const getNotifications = () => {
+      try { return require('expo-notifications'); } catch (e) { return null; }
+    };
+
+    // Configure Audio for background playback
+    const setupAudio = async () => {
+      const AudioModule = getAudio();
+      if (AudioModule) {
+        try {
+          await AudioModule.setAudioModeAsync({
+            allowsRecordingIOS: false,
+            staysActiveInBackground: true,
+            interruptionModeIOS: (AudioModule as any).INTERRUPTION_MODE_IOS_DO_NOT_MIX,
+            playsInSilentModeIOS: true,
+            shouldDuckAndroid: true,
+            interruptionModeAndroid: (AudioModule as any).INTERRUPTION_MODE_ANDROID_DO_NOT_MIX,
+            playThroughEarpieceAndroid: false,
+          });
+        } catch (e) {
+          console.log("Audio mode setup error:", e);
+        }
+      }
+    };
+    setupAudio();
+
+    const startAlarm = async () => {
+      if (isAlarmActive) return; // Already active
+      console.log("ALARM: Starting persistent alert...");
+      setIsAlarmActive(true);
+      const AudioModule = getAudio();
+      if (!AudioModule) {
+        console.log("ALARM: Audio module not available");
+        return;
+      }
+
+      try {
+        // 1. Start Sound Loop
+        if (!soundObject) {
+          const { sound } = await AudioModule.Sound.createAsync(
+            require('../assets/audio/admin_push.mp3'),
+            { 
+              shouldPlay: true, 
+              isLooping: true, 
+              volume: 1.0,
+              androidImplementation: 'MediaPlayer' // Often more stable for looping
+            },
+            (status) => {
+               if (status.isLoaded && !status.isPlaying && status.didJustFinish && !status.isLooping) {
+                 console.log("ALARM: Sound finished but loop failed, restarting manual...");
+                 sound.replayAsync();
+               }
+            }
+          );
+          soundObject = sound;
+        }
+        
+        await soundObject.setStatusAsync({
+          shouldPlay: true,
+          isLooping: true,
+          volume: 1.0,
+        });
+        
+        console.log("ALARM: Sound started and loop configured");
+
+        // 2. Start Persistent Vibration
+        Vibration.cancel();
+        Vibration.vibrate([1000, 500, 1000, 500], true);
+        (vibrationInterval as any) = "active"; 
+
+      } catch (err) {
+        console.error("Error starting alarm:", err);
+      }
+    };
+
+    const stopAlarm = async () => {
+      console.log("ALARM: Stopping persistent alert...");
+      setIsAlarmActive(false);
+      try {
+        if (soundObject) {
+          await soundObject.stopAsync();
+          await soundObject.unloadAsync();
+          soundObject = null;
+        }
+        if (vibrationInterval) {
+          Vibration.cancel();
+          vibrationInterval = null;
+        }
+      } catch (err) {
+        console.error("Error stopping alarm:", err);
+      }
+    };
+
+    // Listeners
+    let notificationListener: any;
+    let responseListener: any;
+    const NotificationsModule = getNotifications();
+
+    if (NotificationsModule && Constants.appOwnership !== 'expo') {
+      notificationListener = NotificationsModule.addNotificationReceivedListener(notification => {
+        console.log("ALARM: Notification received, triggering alarm");
+        startAlarm();
+      });
+
+      responseListener = NotificationsModule.addNotificationResponseReceivedListener(response => {
+        console.log("ALARM: User interacted with notification, stopping alarm");
+        stopAlarm();
+      });
+    }
+
+    // Stop alarm when app state changes to active
+    const appStateListener = AppState.addEventListener('change', nextAppState => {
+      if (nextAppState === 'active') {
+        console.log("ALARM: App foregrounded, stopping alarm and clearing badge");
+        stopAlarm();
+        const NotificationsModule = getNotifications();
+        if (NotificationsModule && Platform.OS === 'ios') {
+          NotificationsModule.setBadgeCountAsync(0).catch(() => {});
+        }
+      }
+    });
+
+    // Stop alarm and clear badge when app is opened/foregrounded manually too
+    stopAlarm(); 
+    if (NotificationsModule && Platform.OS === 'ios') {
+      NotificationsModule.setBadgeCountAsync(0).catch(() => {});
+    }
+
+    return () => {
+      if (notificationListener) notificationListener.remove();
+      if (responseListener) responseListener.remove();
+      appStateListener.remove();
+      stopAlarm();
+    };
+  }, []);
+
 
   if (!fontsLoaded) {
     console.log("RootLayout: Fonts not loaded yet");
@@ -128,6 +274,12 @@ export default function RootLayout() {
             <Ionicons name="alert-circle" size={24} color="#F87171" />
             <Text style={styles.toastText}>{toastMsg}</Text>
           </BlurView>
+        </View>
+      )}
+
+      {isAlarmActive && (
+        <View style={styles.alarmBanner}>
+          <Text style={styles.alarmText}>🚨 ALARMA ACTIVA - TOCA PARA DETENER 🚨</Text>
         </View>
       )}
 
@@ -171,6 +323,26 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     letterSpacing: 0.3,
+  },
+  alarmBanner: {
+    position: 'absolute',
+    bottom: 100,
+    left: 20,
+    right: 20,
+    backgroundColor: '#EF4444',
+    padding: 20,
+    borderRadius: 12,
+    zIndex: 999999,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+  },
+  alarmText: {
+    color: '#fff',
+    fontWeight: '900',
+    fontSize: 16,
   },
 });
 

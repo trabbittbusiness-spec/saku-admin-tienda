@@ -366,7 +366,7 @@ export default function OrdenesScreen() {
         return {
           id: doc.id,
           displayId: data.codigoRetiro || data.ID_orden || doc.id,
-          client: data.nombre || data.clientName || 'Sin nombre',
+          client: data.nombre || data.nombreCliente || data.clienteNombre || data.clientName || data.userName || 'Sin nombre',
           items: (data.items || []).length,
           amount: `$${(data.total || 0).toLocaleString("de-DE")}`,
           status: mapToUIStatus(data.estado),

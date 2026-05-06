@@ -35,6 +35,8 @@ export default function ServiciosScreen() {
   // Modal State
   const [modalVisible, setModalVisible] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   
   // Form State
   const [nombre, setNombre] = useState('');
@@ -242,29 +244,22 @@ export default function ServiciosScreen() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    const performDelete = async () => {
-      try {
-        await deleteDoc(doc(db, 'Servicios', id));
-      } catch (e) {
-        console.error(e);
-      }
-    };
+  const openDeleteModal = (id: string) => {
+    setDeletingId(id);
+    setDeleteModalVisible(true);
+  };
 
-    if (Platform.OS === 'web') {
-      if (confirm('¿Seguro que deseas eliminar este servicio?')) {
-        performDelete();
-      }
-    } else {
-      Alert.alert(
-        'Eliminar Servicio',
-        '¿Seguro que deseas eliminar este servicio?',
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Eliminar', style: 'destructive', onPress: performDelete }
-        ]
-      );
+  const confirmDelete = async () => {
+    if (!deletingId) return;
+    setSaving(true);
+    try {
+      await deleteDoc(doc(db, 'Servicios', deletingId));
+      setDeleteModalVisible(false);
+      setDeletingId(null);
+    } catch (e) {
+      console.error(e);
     }
+    setSaving(false);
   };
 
   const handleAddCategory = async () => {
@@ -325,7 +320,7 @@ export default function ServiciosScreen() {
         </View>
         
         <View style={[styles.headerActions, isDesktop ? { width: 'auto', flexShrink: 0 } : { flexDirection: 'column', gap: 12 }]}>
-          <View style={[styles.headerSearch, isDesktop ? { width: 200 } : { width: '100%' }, isSearchFocused && styles.headerSearchFocused]}>
+          <View style={[styles.headerSearch, isDesktop ? { width: 200 } : { width: '100%' }]}>
             <Ionicons name="search-outline" size={18} color="#94A3B8" />
             <TextInput
               style={styles.searchInput}
@@ -333,8 +328,8 @@ export default function ServiciosScreen() {
               placeholderTextColor="#94A3B8"
               value={search}
               onChangeText={setSearch}
-              onFocus={() => setIsSearchFocused(true)}
-              onBlur={() => setIsSearchFocused(false)}
+              autoCapitalize="none"
+              autoCorrect={false}
             />
           </View>
 
@@ -378,96 +373,109 @@ export default function ServiciosScreen() {
           const hasPetMode = s.requiresPetDetails && Array.isArray(s.weightRanges) && s.weightRanges.length > 0;
 
           return (
-            <View key={s.id} style={[styles.card, isDesktop && { width: '31%' }]}>
-              {/* IMAGE SECTION */}
-              <View style={styles.imgBox}>
+            <View key={s.id} style={[styles.card, isDesktop ? { width: '31%' } : { width: '100%', flexDirection: 'row', padding: 12, alignItems: 'center', gap: 14, minHeight: 130 }]}>
+              {/* IMAGE SECTION - Square Thumbnail */}
+              <View style={[styles.imgBox, !isDesktop ? { width: 90, height: 90, borderRadius: 18, overflow: 'hidden' } : {}]}>
                 {s.foto1 ? (
                   <Image source={{ uri: s.foto1 }} style={styles.productImg} resizeMode="cover" />
                 ) : (
                   <View style={{ flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F1F5F9' }}>
-                    <Ionicons name="briefcase-outline" size={44} color="#CBD5E1" />
+                    <Ionicons name="briefcase-outline" size={32} color="#CBD5E1" />
                   </View>
                 )}
-                {/* Dark gradient overlay */}
-                <View style={styles.imgGradient} />
+                {isDesktop && <View style={styles.imgGradient} />}
 
-                {/* Status pill */}
-                <View style={[styles.statusPill, { backgroundColor: isActive ? '#10B981' : '#EF4444' }]}>
-                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#fff', marginRight: 5 }} />
-                  <Text style={styles.statusPillText}>{isActive ? 'Activo' : 'Inactivo'}</Text>
-                </View>
+                {/* Status indicator on image for mobile */}
+                {!isDesktop && (
+                  <View style={{ position: 'absolute', top: 6, left: 6, width: 8, height: 8, borderRadius: 4, backgroundColor: isActive ? '#10B981' : '#EF4444', borderWidth: 1.5, borderColor: '#fff' }} />
+                )}
 
-                {/* Price badge bottom-right */}
-                <View style={[styles.pricePill, hasPetMode && { backgroundColor: '#63348C' }]}>
-                  <Text style={styles.pricePillText} numberOfLines={1}>{priceDisplay}</Text>
-                </View>
+                {isDesktop && (
+                  <View style={[styles.statusPill, { backgroundColor: isActive ? '#10B981' : '#EF4444' }]}>
+                    <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#fff', marginRight: 5 }} />
+                    <Text style={styles.statusPillText}>{isActive ? 'Activo' : 'Inactivo'}</Text>
+                  </View>
+                )}
+
+                {isDesktop && (
+                  <View style={[styles.pricePill, hasPetMode && { backgroundColor: '#63348C' }]}>
+                    <Text style={styles.pricePillText} numberOfLines={1}>{priceDisplay}</Text>
+                  </View>
+                )}
               </View>
 
-              {/* BODY */}
-              <View style={styles.cardBody}>
-                {/* Name */}
-                <Text style={styles.cardName} numberOfLines={1}>{s.nombre || 'Sin Nombre'}</Text>
-
-                {/* Categories row */}
-                <View style={styles.cardCatContainer}>
-                  {Array.isArray(s.categoriaIds) && s.categoriaIds.length > 0 ? (
-                    s.categoriaIds.slice(0, 2).map((cid: string) => {
-                      const cat = categorias.find(c => c.id === cid);
-                      return cat ? (
-                        <View key={cid} style={styles.cardCatBadge}>
-                          <Text style={styles.cardCatText}>{cat.nombre}</Text>
-                        </View>
-                      ) : null;
-                    })
-                  ) : s.categoriaId ? (
-                    <View style={styles.cardCatBadge}>
-                      <Text style={styles.cardCatText}>
-                        {categorias.find(c => c.id === s.categoriaId)?.nombre || 'Categoría'}
-                      </Text>
-                    </View>
-                  ) : (
-                    <View style={[styles.cardCatBadge, { backgroundColor: '#F8FAFC' }]}>
-                      <Text style={[styles.cardCatText, { color: '#94A3B8' }]}>Sin categoría</Text>
-                    </View>
-                  )}
-                  {hasPetMode && (
-                    <View style={[styles.cardCatBadge, { backgroundColor: '#EDE9FE' }]}>
-                      <Ionicons name="paw-outline" size={10} color="#63348C" style={{ marginRight: 3 }} />
-                      <Text style={[styles.cardCatText, { color: '#63348C' }]}>Multi-mascota</Text>
-                    </View>
-                  )}
-                </View>
-
-                {/* Meta: tiempo y descripción */}
-                <View style={styles.cardMetaRow}>
-                  <Ionicons name="time-outline" size={13} color="#94A3B8" />
-                  <Text style={styles.cardMetaText}>{s.duracion || 'Sin tiempo definido'}</Text>
-                </View>
-
-                <Text style={styles.cardDesc} numberOfLines={2}>
-                  {s.descripcion || 'Sin descripción disponible.'}
-                </Text>
-
-                {/* FOOTER */}
-                <View style={styles.cardFooter}>
-                  <TouchableOpacity
-                    activeOpacity={0.9}
-                    onPress={() => toggleStatus(s.id, isActive)}
-                    style={[styles.statusToggle, isActive ? styles.statusToggleOn : styles.statusToggleOff]}
-                  >
-                    <View style={[styles.statusToggleThumb, isActive ? styles.statusToggleThumbOn : styles.statusToggleThumbOff]} />
-                    <Text style={[styles.statusToggleLabel, { color: isActive ? '#10B981' : '#94A3B8' }]}>
-                      {isActive ? 'Activo' : 'Oculto'}
+              {/* BODY - Info Container */}
+              <View style={[styles.cardBody, !isDesktop && { flex: 1, padding: 0 }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <View style={{ flex: 1, marginRight: 8 }}>
+                    <Text style={[styles.cardName, !isDesktop && { fontSize: 16, marginBottom: 4, lineHeight: 20 }]} numberOfLines={2}>
+                      {s.nombre || 'Sin Nombre'}
                     </Text>
-                  </TouchableOpacity>
+                    
+                    <View style={[styles.cardCatContainer, { marginBottom: 6 }]}>
+                      {Array.isArray(s.categoriaIds) && s.categoriaIds.length > 0 ? (
+                        <View style={styles.cardCatBadge}>
+                          <Text style={styles.cardCatText}>{categorias.find(c => c.id === s.categoriaIds[0])?.nombre || 'Categoría'}</Text>
+                        </View>
+                      ) : (
+                        <View style={[styles.cardCatBadge, { backgroundColor: '#F8FAFC' }]}>
+                          <Text style={[styles.cardCatText, { color: '#94A3B8' }]}>General</Text>
+                        </View>
+                      )}
+                      {hasPetMode && (
+                        <View style={[styles.cardCatBadge, { backgroundColor: '#EDE9FE' }]}>
+                          <Ionicons name="paw" size={8} color="#63348C" style={{ marginRight: 3 }} />
+                          <Text style={[styles.cardCatText, { color: '#63348C' }]}>Multi</Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
 
-                  <View style={styles.cardActions}>
-                    <TouchableOpacity style={styles.editBtn} onPress={() => openEdit(s)}>
-                      <Ionicons name="create-outline" size={17} color="#63348C" />
-                      <Text style={styles.editBtnText}>Editar</Text>
+                  {!isDesktop && (
+                    <TouchableOpacity
+                      onPress={() => toggleStatus(s.id, isActive)}
+                      style={{ padding: 4 }}
+                    >
+                      <Ionicons 
+                        name={isActive ? "eye-outline" : "eye-off-outline"} 
+                        size={22} 
+                        color={isActive ? "#10B981" : "#CBD5E1"} 
+                      />
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.delBtn} onPress={() => handleDelete(s.id)}>
-                      <Ionicons name="trash-outline" size={17} color="#EF4444" />
+                  )}
+                </View>
+
+                {/* Price and duration line */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                  <Text style={{ fontSize: 17, fontWeight: '900', color: '#0F172A' }}>{priceDisplay}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Ionicons name="time-outline" size={14} color="#94A3B8" />
+                    <Text style={{ fontSize: 13, color: '#94A3B8', fontWeight: '600' }}>{s.duracion || '--'}</Text>
+                  </View>
+                </View>
+
+                {isDesktop && (
+                  <Text style={styles.cardDesc} numberOfLines={2}>
+                    {s.descripcion || 'Sin descripción disponible.'}
+                  </Text>
+                )}
+
+                {/* Actions Footer */}
+                <View style={[styles.cardFooter, !isDesktop && { borderTopWidth: 0, paddingTop: 0 }]}>
+                  <View style={[styles.cardActions, !isDesktop && { gap: 10 }]}>
+                    <TouchableOpacity 
+                      style={[styles.editBtn, !isDesktop && { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#F1F5F9' }]} 
+                      onPress={() => openEdit(s)}
+                    >
+                      <Ionicons name="create-outline" size={16} color="#63348C" />
+                      <Text style={[styles.editBtnText, { fontSize: 12 }]}>Editar</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
+                      style={[styles.delBtn, !isDesktop && { width: 36, height: 36, borderRadius: 10 }]} 
+                      onPress={() => openDeleteModal(s.id)}
+                    >
+                      <Ionicons name="trash-outline" size={16} color="#EF4444" />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -914,6 +922,29 @@ export default function ServiciosScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* ── MODAL ELIMINAR ── */}
+      <Modal visible={deleteModalVisible} transparent animationType="fade">
+        <View style={{ flex: 1, backgroundColor: 'rgba(15,23,42,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <View style={{ backgroundColor: '#fff', borderRadius: 24, padding: 28, width: '100%', maxWidth: 360, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.15, shadowRadius: 40, elevation: 20 }}>
+            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: '#FFF5F5', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+              <Ionicons name="trash" size={32} color="#EF4444" />
+            </View>
+            <Text style={{ fontSize: 20, fontWeight: '900', color: '#EF4444', marginBottom: 6 }}>Eliminar Servicio</Text>
+            <Text style={{ fontSize: 13, color: '#64748B', textAlign: 'center', marginBottom: 24, lineHeight: 20 }}>
+              ¿Estás seguro de eliminar este servicio? Esta acción no se puede deshacer.
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
+              <TouchableOpacity style={{ flex: 1, paddingVertical: 14, borderRadius: 14, alignItems: 'center', backgroundColor: '#F1F5F9' }} onPress={() => setDeleteModalVisible(false)}>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: '#475569' }}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={{ flex: 1, paddingVertical: 14, borderRadius: 14, alignItems: 'center', backgroundColor: '#EF4444' }} onPress={confirmDelete} disabled={saving}>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: '#fff' }}>{saving ? 'Eliminando...' : 'Eliminar'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -931,7 +962,7 @@ const styles = StyleSheet.create({
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 12, width: '100%' },
   headerSearch: { flex: Platform.OS !== 'web' ? 1 : undefined, width: Platform.OS === 'web' ? 200 : 'auto', flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: '#E2E8F0', gap: 6 },
   headerSearchFocused: { borderColor: '#63348C', backgroundColor: '#fff' },
-  searchInput: { flex: 1, fontSize: 13, color: '#0F172A', outlineStyle: 'none' } as any,
+  searchInput: { flex: 1, fontSize: 13, color: '#0F172A', fontWeight: '500' },
   
   addBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#10B981', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12, shadowColor: '#10B981', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 8, flexShrink: 0, overflow: 'visible' },
   addBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
@@ -939,7 +970,7 @@ const styles = StyleSheet.create({
 
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 20 },
   card: {
-    width: Platform.OS === 'web' ? '31%' : '48%', backgroundColor: '#fff', borderRadius: 20,
+    width: '100%', backgroundColor: '#fff', borderRadius: 20,
     borderWidth: 1, borderColor: '#F1F5F9', overflow: 'hidden',
     shadowColor: '#63348C', shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.06, shadowRadius: 24, marginBottom: 4,

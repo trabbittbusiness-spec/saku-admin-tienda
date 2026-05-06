@@ -379,7 +379,7 @@ export default function AgendaScreen() {
                               <TouchableOpacity key={cita.id} activeOpacity={0.85}
                                 onPress={() => {setSelectedCita(cita); setDetailModalOpen(true);}}
                                 style={[styles.rpCitaCard, {backgroundColor: col}]}>
-                                <Text style={styles.rpCitaName} numberOfLines={1}>{cita.clienteNombre||'Cliente'}</Text>
+                                <Text style={styles.rpCitaName} numberOfLines={1}>{cita.clienteNombre || cita.nombre || cita.nombreCliente || cita.clientName || 'Cliente'}</Text>
                                 <View style={{flexDirection:'row', alignItems:'center', gap:4, marginTop:2}}>
                                   <Text style={styles.rpCitaService} numberOfLines={1}>{cita.servicioNombre||'Servicio'}</Text>
                                   {cita.equipo && <View style={styles.rpEquipoBadge}><Text style={styles.rpEquipoTxt}>EQUIPO</Text></View>}
@@ -495,7 +495,7 @@ export default function AgendaScreen() {
                             style={[styles.canvasCitaCard, { borderLeftColor: cita.estado === 'Completadas' ? '#63348C' : (cita.color || '#63348C') }]}
                           >
                             <Text style={styles.citaCardTime}>{formatTime(cita.fecha)}</Text>
-                            <Text style={styles.citaCardClient} numberOfLines={1}>{cita.clienteNombre || 'Usuario'}</Text>
+                            <Text style={styles.citaCardClient} numberOfLines={1}>{cita.clienteNombre || cita.nombre || cita.nombreCliente || cita.clientName || 'Usuario'}</Text>
                             <Text style={styles.citaCardService} numberOfLines={1}>{cita.servicioNombre || 'Servicio'}</Text>
                           </TouchableOpacity>
                         ))}
@@ -639,7 +639,7 @@ export default function AgendaScreen() {
                           style={[styles.mobileCitaCard, { backgroundColor: cita.estado === 'Completadas' ? '#63348C20' : `${cita.color || '#63348C'}20`, borderLeftColor: cita.estado === 'Completadas' ? '#63348C' : (cita.color || '#63348C') }]}
                         >
                           <Text style={styles.mobileCitaTime}>{formatTime(cita.fecha)}</Text>
-                          <Text style={styles.mobileCitaClient} numberOfLines={1}>{cita.clienteNombre || 'User'}</Text>
+                          <Text style={styles.mobileCitaClient} numberOfLines={1}>{cita.clienteNombre || cita.nombre || cita.nombreCliente || cita.clientName || 'Usuario'}</Text>
                         </TouchableOpacity>
                       ))}
                     </View>

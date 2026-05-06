@@ -1,12 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
-  useWindowDimensions, Platform, StyleSheet, Image, ActivityIndicator, Alert, Modal
+  useWindowDimensions, Platform, StyleSheet, Image, ActivityIndicator, Alert, Modal, Linking
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { db } from '../../../lib/firebase';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withRepeat, 
+  withTiming, 
+  interpolate,
+  Extrapolate
+} from 'react-native-reanimated';
+import { db } from '../../lib/firebase';
 import { doc, onSnapshot, updateDoc, deleteDoc, Timestamp, addDoc, collection, getDoc, serverTimestamp } from 'firebase/firestore';
 
 import * as Clipboard from 'expo-clipboard';
@@ -39,6 +47,41 @@ const getStepIndex = (status: string) => {
   return 0;
 };
 
+const StatusPulse = ({ color }: { color: string }) => {
+  const progress = useSharedValue(0);
+
+  useEffect(() => {
+    progress.value = withRepeat(
+      withTiming(1, { duration: 2000 }),
+      -1,
+      false
+    );
+  }, []);
+
+  const ringStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: interpolate(progress.value, [0, 1], [1, 2.5]) }],
+      opacity: interpolate(progress.value, [0, 1], [0.5, 0]),
+    };
+  });
+
+  return (
+    <Animated.View 
+      style={[
+        {
+          position: 'absolute',
+          width: 32,
+          height: 32,
+          borderRadius: 16,
+          backgroundColor: color,
+          zIndex: -1,
+        },
+        ringStyle
+      ]} 
+    />
+  );
+};
+
 export default function OrdenDetalleScreen() {
   const { id, from } = useLocalSearchParams<{ id: string, from?: string }>();
   const { width } = useWindowDimensions();
@@ -58,10 +101,11 @@ export default function OrdenDetalleScreen() {
     const unsubscribe = onSnapshot(orderDoc, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.data();
+        const userName = data.nombre || data.nombreCliente || data.clienteNombre || data.clientName || 'Sin nombre';
         setOrder({
           id: snapshot.id,
           displayId: data.codigoRetiro || data.ID_orden || snapshot.id,
-          client: data.nombre || data.clientName || 'Sin nombre',
+          client: userName,
           phone: data.telefono || data.numerodetelefono || '',
           email: data.email || '',
           date: formatDate(data.timestamp || data.fechaCreacion),
@@ -75,7 +119,8 @@ export default function OrdenDetalleScreen() {
           type: data.tipoEntrega === 'home' ? 'Entrega a Domicilio' : 'Retiro en Sucursal',
           note: data.puntoReferencia || data.puntodereferencia || '',
           carrier: data.carrier || '',
-          items: data.items || []
+          items: data.items || [],
+          coords: data.direccion?.lat && data.direccion?.lng ? { lat: data.direccion.lat, lng: data.direccion.lng } : null
         });
       }
       setLoading(false);
@@ -190,7 +235,8 @@ export default function OrdenDetalleScreen() {
   const cfg = STATUS_CONFIG[order.status] ?? STATUS_CONFIG['Pendiente'];
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }} edges={['top', 'bottom']}>
+      <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
       <ScrollView 
         contentContainerStyle={{ 
           paddingHorizontal: isDesktop ? 40 : 20, 
@@ -205,56 +251,80 @@ export default function OrdenDetalleScreen() {
         <View style={s.headerCard}>
           <View style={{ flexDirection: isDesktop ? 'row' : 'column', justifyContent: 'space-between', gap: isDesktop ? 30 : 20 }}>
             <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 16, position: 'relative', minHeight: 40 }}>
                 <TouchableOpacity 
                   onPress={() => from ? router.push(from as any) : router.back()}
-                  style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center' }}
+                  style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, zIndex: 10 }}
                 >
-                  <Ionicons name="arrow-back" size={20} color="#111827" />
+                  <Ionicons name="arrow-back" size={22} color="#111827" />
                 </TouchableOpacity>
 
-                <TouchableOpacity 
-                  onPress={() => copyToClipboard(order.id)}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}
-                >
-                  <Text style={{ fontSize: isDesktop ? 26 : 18, fontWeight: '900', color: '#111827' }} numberOfLines={1}>{order.id}</Text>
-                  {copied ? <Ionicons name="checkmark" size={16} color="#63348C" /> : <Ionicons name="copy-outline" size={16} color="#9CA3AF" />}
-                </TouchableOpacity>
+                <Text style={{ fontSize: isDesktop ? 26 : 19, fontWeight: '900', color: '#111827', textAlign: 'center' }}>Detalles de Orden</Text>
 
                 <TouchableOpacity 
                   onPress={() => setShowDeleteModal(true)}
                   disabled={saving}
-                  style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#FEE2E2', justifyContent: 'center', alignItems: 'center' }}
+                  style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#FEE2E2', justifyContent: 'center', alignItems: 'center', position: 'absolute', right: 0, zIndex: 10 }}
                 >
-                  <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                  <Ionicons name="trash-outline" size={20} color="#EF4444" />
                 </TouchableOpacity>
               </View>
-              <Text style={[s.headerMeta, { marginLeft: isDesktop ? 51 : 0 }]}>{order.type} • {order.date}</Text>
+
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <TouchableOpacity 
+                  onPress={() => copyToClipboard(order.id)}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#F8FAFC', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: '#F1F5F9' }}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#63348C', letterSpacing: 0.5 }} numberOfLines={1}>{order.id}</Text>
+                  {copied ? <Ionicons name="checkmark" size={14} color="#10B981" /> : <Ionicons name="copy-outline" size={14} color="#94A3B8" />}
+                </TouchableOpacity>
+                <Text style={s.headerMeta}>{order.type} • {order.date}</Text>
+              </View>
             </View>
 
             {/* Status Steps Tracker */}
-            <View style={{ flex: 1.5, justifyContent: 'center' }}>
+            <View style={{ flex: 1.5, justifyContent: 'center', marginTop: isDesktop ? 0 : 30 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', position: 'relative' }}>
                 <View style={s.timelineBgLine} />
-                <View style={[s.timelineActiveLine, { width: `${(stepIndex / 2) * 90}%` }]} />
+                <View style={[s.timelineActiveLine, { 
+                  width: `${(stepIndex / 2) * 90}%`,
+                  backgroundColor: order.status === 'Entregado' ? '#10B981' : '#111827',
+                  height: 4,
+                  top: 15
+                }]} />
 
                 {steps.map((step, idx) => {
                   const isActive = idx <= stepIndex;
                   const isCurrent = idx === stepIndex;
+                  const isSuccess = order.status === 'Entregado' && isActive;
+                  const themeColor = isSuccess ? '#10B981' : (isActive ? '#111827' : '#9CA3AF');
+                  const bgColor = isSuccess ? '#10B981' : (isActive ? '#111827' : '#FFFFFF');
+
                   return (
                     <View key={idx} style={{ alignItems: 'center', gap: 8 }}>
-                      <View style={[
-                        s.timelineDot, 
-                        isActive && s.timelineDotActive,
-                        isCurrent && { borderColor: '#111827' }
-                      ]}>
-                        {isCurrent ? (
-                           <View style={s.timelineDotCurrent} />
-                        ) : (
-                           <Ionicons name={step.icon} size={16} color={isActive ? '#FFFFFF' : '#9CA3AF'} />
+                      <View style={{ position: 'relative', justifyContent: 'center', alignItems: 'center' }}>
+                        {isCurrent && <StatusPulse color={order.status === 'Entregado' ? '#10B981' : '#63348C'} />}
+                        
+                        {/* Success Badge integrated */}
+                        {order.status === 'Entregado' && idx === 2 && (
+                          <View style={{ position: 'absolute', top: -12, right: -4, backgroundColor: '#059669', borderRadius: 10, padding: 2, borderWidth: 2, borderColor: '#FFF', zIndex: 20 }}>
+                            <Ionicons name="checkmark" size={10} color="#FFF" />
+                          </View>
                         )}
+
+                        <View style={[
+                          s.timelineDot, 
+                          isActive && { backgroundColor: bgColor, borderColor: bgColor, shadowColor: bgColor, shadowOpacity: 0.3, shadowRadius: 10, elevation: 5 },
+                          isCurrent && { borderWidth: 3, borderColor: order.status === 'Entregado' ? '#059669' : '#111827' }
+                        ]}>
+                          {isCurrent && order.status !== 'Entregado' ? (
+                             <View style={[s.timelineDotCurrent, { backgroundColor: '#63348C' }]} />
+                          ) : (
+                             <Ionicons name={step.icon} size={16} color={isActive ? '#FFFFFF' : '#9CA3AF'} />
+                          )}
+                        </View>
                       </View>
-                      <Text style={[s.timelineLabel, isActive && s.timelineLabelActive]}>{step.label}</Text>
+                      <Text style={[s.timelineLabel, isActive && { color: themeColor, fontWeight: '900', fontSize: 11 }]}>{step.label}</Text>
                     </View>
                   );
                 })}
@@ -360,6 +430,22 @@ export default function OrdenDetalleScreen() {
                        </View>
                        <View style={{ flex: 1 }}>
                           <Text style={[s.infoMainText, { fontSize: 12 }]}>{order.type.includes('Retiro') ? 'Saku Store Central' : order.address}</Text>
+                          
+                          {order.coords && (
+                            <TouchableOpacity 
+                              onPress={() => {
+                                const url = Platform.select({
+                                  ios: `maps:0,0?q=${order.coords.lat},${order.coords.lng}`,
+                                  android: `geo:0,0?q=${order.coords.lat},${order.coords.lng}`
+                                });
+                                if (url) Linking.openURL(url);
+                              }}
+                              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6, backgroundColor: '#F1F5F9', alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}
+                            >
+                              <Ionicons name="map-outline" size={12} color="#63348C" />
+                              <Text style={{ fontSize: 11, fontWeight: '700', color: '#63348C' }}>Abrir Ubicación</Text>
+                            </TouchableOpacity>
+                          )}
                        </View>
                     </View>
                 </View>
@@ -440,7 +526,8 @@ export default function OrdenDetalleScreen() {
         </View>
       )}
 
-    </View>
+      </View>
+    </SafeAreaView>
   );
 }
 
@@ -448,8 +535,8 @@ const s = StyleSheet.create({
   headerCard: { backgroundColor: '#FFFFFF', borderRadius: 24, padding: 20, shadowColor: '#000', shadowOpacity: 0.02, shadowRadius: 20, shadowOffset: { width: 0, height: 10 }, borderWidth: 1, borderColor: '#F3F4F6', marginBottom: 20 },
   headerMeta: { fontSize: 13, color: '#9CA3AF', fontWeight: '600', marginTop: 8 },
   
-  timelineBgLine: { position: 'absolute', left: '5%', right: '5%', top: 16, height: 2, backgroundColor: '#F3F4F6', zIndex: -1 },
-  timelineActiveLine: { position: 'absolute', left: '5%', top: 16, height: 2, backgroundColor: '#111827', zIndex: -1 },
+  timelineBgLine: { position: 'absolute', left: '5%', right: '5%', top: 15, height: 4, backgroundColor: '#F3F4F6', zIndex: -1, borderRadius: 2 },
+  timelineActiveLine: { position: 'absolute', left: '5%', top: 15, height: 4, backgroundColor: '#111827', zIndex: -1, borderRadius: 2 },
   timelineDot: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#F3F4F6' },
   timelineDotActive: { backgroundColor: '#111827', borderColor: '#111827' },
   timelineDotCurrent: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#63348C' },

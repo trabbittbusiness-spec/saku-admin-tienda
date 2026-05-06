@@ -32,11 +32,23 @@ export async function registerForPushNotificationsAsync(userId: string) {
     let expoToken;
 
     if (Platform.OS === 'android') {
+      // Configuramos ambos canales para asegurar que suene sin importar cual use el servidor
       await Notifications.setNotificationChannelAsync('default', {
-        name: 'default',
+        name: 'Alertas Saku',
         importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
+        vibrationPattern: [0, 1000, 500, 1000],
         lightColor: '#63348C',
+        sound: 'admin_push',
+      });
+      await Notifications.setNotificationChannelAsync('admin_alerts_v6', {
+        name: 'ALARMA SAKU V6',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 500, 200, 500, 200, 500, 200, 500, 200, 500],
+        lightColor: '#FF0000',
+        sound: 'admin_push',
+        showBadge: true,
+        enableVibrate: true,
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
       });
     }
 
@@ -46,7 +58,14 @@ export async function registerForPushNotificationsAsync(userId: string) {
     let finalStatus = existingStatus;
     
     if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
+      const { status } = await Notifications.requestPermissionsAsync({
+        ios: {
+          allowAlert: true,
+          allowBadge: true,
+          allowSound: true,
+          allowAnnouncements: true,
+        },
+      });
       finalStatus = status;
     }
     

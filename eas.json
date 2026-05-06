@@ -10,6 +10,20 @@
         "buildType": "apk"
       }
     },
-    "production": {}
+    "production": {
+      "autoIncrement": true
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "sakudeveloperchile@gmail.com",
+        "ascAppId": "6473057766",
+        "appleTeamId": "4H4BJH5HJX"
+      }
+    }
+  },
+  "cli": {
+    "appVersionSource": "local"
   }
 }

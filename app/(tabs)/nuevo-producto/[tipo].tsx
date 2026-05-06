@@ -401,9 +401,8 @@ export default function NuevoProductoScreen() {
 
       <ScrollView 
         style={styles.container} 
-        contentContainerStyle={[styles.content, isDesktop && { flex: 1, paddingHorizontal: 24, paddingVertical: 16 }]}
-        showsVerticalScrollIndicator={!isDesktop}
-        scrollEnabled={!isDesktop}
+        contentContainerStyle={[styles.content, isDesktop && { paddingHorizontal: 24, paddingVertical: 16, paddingBottom: 100 }]}
+        showsVerticalScrollIndicator={true}
       >
         <View style={[styles.mainLayout, isDesktop && styles.mainLayoutDesktop]}>
           

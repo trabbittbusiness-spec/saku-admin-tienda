@@ -253,7 +253,7 @@ export default function ProductosScreen() {
                         <Ionicons name="pencil-outline" size={16} color="#63348C" />
                         <Text style={ds.editBtnText}>Editar</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity style={ds.deleteBtn}>
+                      <TouchableOpacity style={ds.deleteBtn} onPress={() => openDeleteModal(p)}>
                         <Ionicons name="trash-outline" size={16} color="#EF4444" />
                       </TouchableOpacity>
                     </View>
@@ -293,6 +293,65 @@ export default function ProductosScreen() {
             </View>
           )}
         </ScrollView>
+
+        {/* ── MODAL EDITAR PRECIO ── */}
+        <Modal visible={editPriceModal} transparent animationType="fade">
+          <View style={ms.modalOverlay}>
+            <View style={ms.modalBox}>
+              <View style={ms.modalIconWrap}>
+                <Ionicons name="pricetag" size={32} color="#63348C" />
+              </View>
+              <Text style={ms.modalTitle}>Editar Precio</Text>
+              <Text style={ms.modalSubtitle} numberOfLines={1}>{selectedProduct?.name}</Text>
+
+              <View style={ms.modalInputWrap}>
+                <Text style={ms.modalInputPrefix}>$</Text>
+                <TextInput
+                  style={ms.modalInput}
+                  value={newPrice}
+                  onChangeText={setNewPrice}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor="#CBD5E1"
+                  autoFocus
+                />
+              </View>
+
+              <View style={ms.modalBtns}>
+                <TouchableOpacity style={ms.modalCancelBtn} onPress={() => setEditPriceModal(false)}>
+                  <Text style={ms.modalCancelText}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={ms.modalConfirmBtn} onPress={savePrice} disabled={saving}>
+                  <Text style={ms.modalConfirmText}>{saving ? 'Guardando...' : 'Guardar'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* ── MODAL ELIMINAR ── */}
+        <Modal visible={deleteModal} transparent animationType="fade">
+          <View style={ms.modalOverlay}>
+            <View style={ms.modalBox}>
+              <View style={[ms.modalIconWrap, { backgroundColor: '#FFF5F5' }]}>
+                <Ionicons name="trash" size={32} color="#EF4444" />
+              </View>
+              <Text style={[ms.modalTitle, { color: '#EF4444' }]}>Eliminar Producto</Text>
+              <Text style={ms.modalSubtitle} numberOfLines={2}>
+                ¿Estás seguro de eliminar "{selectedProduct?.name}"? Esta acción no se puede deshacer.
+              </Text>
+
+              <View style={ms.modalBtns}>
+                <TouchableOpacity style={ms.modalCancelBtn} onPress={() => setDeleteModal(false)}>
+                  <Text style={ms.modalCancelText}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[ms.modalConfirmBtn, { backgroundColor: '#EF4444' }]} onPress={confirmDelete} disabled={saving}>
+                  <Text style={ms.modalConfirmText}>{saving ? 'Eliminando...' : 'Eliminar'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     );
   }
@@ -304,7 +363,7 @@ export default function ProductosScreen() {
     <SafeAreaView style={ms.bg} edges={['top']}>
       {/* Header */}
       <View style={ms.header}>
-        <View style={[ms.headerSearch, isSearchFocused && ms.headerSearchFocused]}>
+        <View style={ms.headerSearch}>
           <Ionicons name="search-outline" size={16} color="#94A3B8" />
           <TextInput
             style={ms.searchInput}
@@ -312,8 +371,8 @@ export default function ProductosScreen() {
             placeholderTextColor="#94A3B8"
             value={search}
             onChangeText={changeSearch}
-            onFocus={() => setIsSearchFocused(true)}
-            onBlur={() => setIsSearchFocused(false)}
+            autoCapitalize="none"
+            autoCorrect={false}
           />
           {search.length > 0 && (
             <TouchableOpacity onPress={() => changeSearch('')} activeOpacity={0.7}>
@@ -561,7 +620,7 @@ const ms = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, gap: 10 },
   headerSearch: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 9, borderWidth: 1, borderColor: '#E2E8F0', gap: 8 },
   headerSearchFocused: { borderColor: '#63348C', shadowColor: '#63348C', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.1, shadowRadius: 8, backgroundColor: '#fff' },
-  searchInput: { flex: 1, fontSize: 14, color: '#0F172A', outlineStyle: 'none' } as any,
+  searchInput: { flex: 1, fontSize: 14, color: '#0F172A' },
   addBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#10B981', paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12 },
   addBtnText: { color: '#fff', fontWeight: '800', fontSize: 13 },
 
