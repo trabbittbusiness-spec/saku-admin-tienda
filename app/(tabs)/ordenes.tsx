@@ -93,7 +93,12 @@ function OrderDetailPanel({ order, onClose }: { order: any; onClose: () => void 
             </View>
             <View style={detail.infoRow}>
               <Ionicons name="location-outline" size={16} color="#63348C" />
-              <Text style={detail.infoText}>{order.address}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={detail.infoText}>{order.address}</Text>
+                {order.instructions ? (
+                  <Text style={[detail.infoText, { fontSize: 12, color: '#64748B', marginTop: 2 }]}>Instrucciones: {order.instructions}</Text>
+                ) : null}
+              </View>
             </View>
             {order.note ? (
               <View style={detail.infoRow}>
@@ -372,6 +377,7 @@ export default function OrdenesScreen() {
           status: mapToUIStatus(data.estado),
           date: formatDate(data.timestamp || data.fechaCreacion),
           address: data.direccion?.texto || data.direccion?.main || 'Retiro en Sucursal',
+          instructions: data.direccion?.instructions || '',
           phone: data.telefono || data.numerodetelefono || '',
           email: data.email || '',
           type: data.tipoEntrega === 'home' ? 'delivery' : 'pickup',

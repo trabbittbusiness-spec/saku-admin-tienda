@@ -54,9 +54,14 @@ export default function NotifyClientsModal({ visible, onClose }: Props) {
         userRefs = [currentUserRef];
         usersSnap = { size: 1 };
       } else {
-        // Mode ALL: Fetch everyone
-        usersSnap = await getDocs(collection(db, 'users'));
-        userRefs = usersSnap.docs.map(d => doc(db, 'users', d.id));
+        // Mode ALL: Fetch only non-admin users
+        const allUsersSnap = await getDocs(collection(db, 'users'));
+        const clientDocs = allUsersSnap.docs.filter(d => {
+          const data = d.data();
+          return data.isAdmin !== true && data.IsAdmin !== true; // Checking both case variants just in case
+        });
+        userRefs = clientDocs.map(d => doc(db, 'users', d.id));
+        usersSnap = { size: clientDocs.length };
       }
 
       // 2. Create the notification document

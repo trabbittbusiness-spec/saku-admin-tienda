@@ -56,3 +56,5 @@ users.json
 # Builds
 *.apk
 *.aab
+*.ipa
+*.txt

@@ -152,7 +152,7 @@ export default function CuentaScreen() {
               <View style={[styles.iconWrapper, { backgroundColor: '#FFE4E6' }]}>
                 <Ionicons name="people-outline" size={24} color="#E11D48" />
               </View>
-              <Text style={styles.itemTitle}>Usuarios</Text>
+              <Text style={styles.itemTitle}>Clientes</Text>
               <Text style={styles.itemDesc}>Permisos de personal y clientes.</Text>
             </TouchableOpacity>
           </View>

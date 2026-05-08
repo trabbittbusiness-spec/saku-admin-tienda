@@ -110,6 +110,7 @@ export default function OrdenDetalleScreen() {
           email: data.email || '',
           date: formatDate(data.timestamp || data.fechaCreacion),
           address: data.direccion?.texto || data.direccion?.main || 'Retiro en Sucursal',
+          instructions: data.direccion?.instructions || '',
           payment: data.metodoPago === 'cash' ? 'Efectivo / Transfer' : 'Tarjeta Bancaria',
           shipping: data.envio || 0,
           discount: data.descuento || 0,
@@ -430,13 +431,17 @@ export default function OrdenDetalleScreen() {
                        </View>
                        <View style={{ flex: 1 }}>
                           <Text style={[s.infoMainText, { fontSize: 12 }]}>{order.type.includes('Retiro') ? 'Saku Store Central' : order.address}</Text>
+                          {order.instructions ? (
+                            <Text style={[s.infoSubText, { fontSize: 11 }]}>Instrucciones: {order.instructions}</Text>
+                          ) : null}
                           
                           {order.coords && (
                             <TouchableOpacity 
                               onPress={() => {
                                 const url = Platform.select({
                                   ios: `maps:0,0?q=${order.coords.lat},${order.coords.lng}`,
-                                  android: `geo:0,0?q=${order.coords.lat},${order.coords.lng}`
+                                  android: `geo:0,0?q=${order.coords.lat},${order.coords.lng}`,
+                                  default: `https://www.google.com/maps/search/?api=1&query=${order.coords.lat},${order.coords.lng}`
                                 });
                                 if (url) Linking.openURL(url);
                               }}

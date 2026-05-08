@@ -2,7 +2,7 @@
   "expo": {
     "name": "Saku Admin",
     "slug": "saku-admin",
-    "version": "7.6.2",
+    "version": "7.6.3",
     "orientation": "portrait",
     "icon": "./assets/images/logo_saku_cl.png",
     "scheme": "sakuadmin",
@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.SAKUAMIN.COM",
-      "buildNumber": "28",
+      "buildNumber": "31",
       "appleTeamId": "4H4BJH5HJX",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
@@ -24,7 +24,6 @@
         "NSPhotoLibraryUsageDescription": "Esta aplicación necesita acceso a tu galería para subir imágenes de los productos.",
         "NSMicrophoneUsageDescription": "Esta aplicación necesita acceso al micrófono para grabar videos de los productos.",
         "UIBackgroundModes": [
-          "remote-notification",
           "remote-notification"
         ]
       }
@@ -38,7 +37,6 @@
       "package": "com.SAKUAMIN.COM",
       "googleServicesFile": "./google-services.json",
       "permissions": [
-        "android.permission.RECORD_AUDIO",
         "android.permission.RECORD_AUDIO"
       ]
     },
@@ -69,15 +67,10 @@
           "cameraPermission": "Esta aplicación necesita acceso a la cámara para tomar fotos de los productos y perfiles.",
           "microphonePermission": "Esta aplicación necesita acceso al micrófono para grabar videos de los productos."
         }
-      ]
+      ],
+      "expo-asset",
+      "expo-web-browser"
     ],
-    "notification": {
-      "icon": "./assets/images/saku_notification_silhouette.png",
-      "color": "#63348C",
-      "sounds": [
-        "./assets/audio/admin_push.mp3"
-      ]
-    },
     "experiments": {
       "typedRoutes": true
     },
