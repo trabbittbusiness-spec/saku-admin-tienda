@@ -17,6 +17,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import ConfirmModal from '../../components/ConfirmModal';
+
 import { db } from '../../lib/firebase';
 import { collection, addDoc, serverTimestamp, getDocs, onSnapshot, query, orderBy, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 
@@ -35,6 +37,7 @@ export default function CategoriasScreen() {
   const [selectedTab, setSelectedTab] = useState<'Categorias' | 'Marcas'>('Categorias');
   
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   
   // Shared Form State
@@ -359,26 +362,7 @@ export default function CategoriasScreen() {
               {editingItem && (
                 <TouchableOpacity 
                   style={styles.modalDeleteBtn}
-                  onPress={async () => {
-                    if (!editingItem.id) return;
-                    if (!confirm(`¿Estás seguro de eliminar esta ${selectedTab === 'Categorias' ? 'categoría' : 'marca'}?`)) return;
-                    try {
-                      setLoading(true);
-                      const collectionName = selectedTab === 'Categorias' ? 'Categorias_name' : 'Marca_name';
-                      await deleteDoc(doc(db, collectionName, editingItem.id));
-                      setIsModalVisible(false);
-                      setEditingItem(null);
-                      setNewName('');
-                      setSelectedAnimals([]);
-                      setItemCategory('');
-                      setDisponibilidad(true);
-                    } catch (error) {
-                      console.error("Error deleting item:", error);
-                      alert("Error al eliminar");
-                    } finally {
-                      setLoading(false);
-                    }
-                  }}
+                  onPress={() => setIsDeleteModalVisible(true)}
                 >
                   <Ionicons name="trash-outline" size={20} color="#EF4444" />
                 </TouchableOpacity>
@@ -444,6 +428,36 @@ export default function CategoriasScreen() {
           </View>
         </View>
       )}
+
+      <ConfirmModal
+        visible={isDeleteModalVisible}
+        onClose={() => setIsDeleteModalVisible(false)}
+        title={`¿Eliminar ${selectedTab === 'Categorias' ? 'categoría' : 'marca'}?`}
+        message={`¿Estás seguro de que deseas eliminar "${newName}"? Esta acción no se puede deshacer.`}
+        confirmText="Sí, eliminar"
+        cancelText="No, cancelar"
+        loading={loading}
+        onConfirm={async () => {
+          if (!editingItem?.id) return;
+          try {
+            setLoading(true);
+            const collectionName = selectedTab === 'Categorias' ? 'Categorias_name' : 'Marca_name';
+            await deleteDoc(doc(db, collectionName, editingItem.id));
+            setIsDeleteModalVisible(false);
+            setIsModalVisible(false);
+            setEditingItem(null);
+            setNewName('');
+            setSelectedAnimals([]);
+            setItemCategory('');
+            setDisponibilidad(true);
+          } catch (error) {
+            console.error("Error deleting item:", error);
+            alert("Error al eliminar");
+          } finally {
+            setLoading(false);
+          }
+        }}
+      />
     </SafeAreaView>
   );
 }

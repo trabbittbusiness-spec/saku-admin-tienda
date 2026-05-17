@@ -92,6 +92,20 @@ export default function OrdenDetalleScreen() {
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [originCoords, setOriginCoords] = useState<{lat: number, lng: number} | null>(null);
+
+  useEffect(() => {
+    // Fetch origin
+    const originRef = doc(db, 'ClinicOrigin', 'origin');
+    getDoc(originRef).then(snap => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.lat && data.lng) {
+          setOriginCoords({ lat: data.lat, lng: data.lng });
+        }
+      }
+    }).catch(console.error);
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -399,7 +413,7 @@ export default function OrdenDetalleScreen() {
                 <View style={{ gap: 8 }}>
                   {order.items.map((item: any, idx: number) => (
                     <View key={idx} style={[s.productRow, { padding: 8 }]}>
-                      <Image source={{ uri: item.foto || item.image }} style={[s.productImage, { width: 34, height: 34 }]} />
+                      <Image source={{ uri: (item.foto || item.image || 'https://placehold.co/150x150/F3F4F6/9CA3AF.png?text=Saku').replace(/https:\/\/via\.placeholder\.com\/\d+/g, 'https://placehold.co/150x150/F3F4F6/9CA3AF.png?text=Saku') }} style={[s.productImage, { width: 34, height: 34 }]} />
                       <View style={{ flex: 1 }}>
                         <Text style={[s.productName, { fontSize: 12 }]} numberOfLines={1}>{item.nombre || item.name}</Text>
                         <Text style={[s.productMeta, { fontSize: 10 }]}>x{item.cantidad} • ${ (item.precio || 0).toLocaleString("de-DE") }</Text>
@@ -438,17 +452,22 @@ export default function OrdenDetalleScreen() {
                           {order.coords && (
                             <TouchableOpacity 
                               onPress={() => {
-                                const url = Platform.select({
-                                  ios: `maps:0,0?q=${order.coords.lat},${order.coords.lng}`,
-                                  android: `geo:0,0?q=${order.coords.lat},${order.coords.lng}`,
-                                  default: `https://www.google.com/maps/search/?api=1&query=${order.coords.lat},${order.coords.lng}`
-                                });
+                                let url = '';
+                                if (order.coords) {
+                                  url = `https://www.google.com/maps/dir/?api=1&destination=${order.coords.lat},${order.coords.lng}&travelmode=driving`;
+                                } else {
+                                  url = Platform.select({
+                                    ios: `maps:0,0?q=${order.coords.lat},${order.coords.lng}`,
+                                    android: `geo:0,0?q=${order.coords.lat},${order.coords.lng}`,
+                                    default: `https://www.google.com/maps/search/?api=1&query=${order.coords.lat},${order.coords.lng}`
+                                  }) || '';
+                                }
                                 if (url) Linking.openURL(url);
                               }}
                               style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6, backgroundColor: '#F1F5F9', alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}
                             >
                               <Ionicons name="map-outline" size={12} color="#63348C" />
-                              <Text style={{ fontSize: 11, fontWeight: '700', color: '#63348C' }}>Abrir Ubicación</Text>
+                              <Text style={{ fontSize: 11, fontWeight: '700', color: '#63348C' }}>Abrir Ruta en Maps</Text>
                             </TouchableOpacity>
                           )}
                        </View>

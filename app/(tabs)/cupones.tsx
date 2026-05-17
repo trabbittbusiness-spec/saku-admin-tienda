@@ -21,6 +21,7 @@ import { collection, query, onSnapshot, doc, setDoc, addDoc, deleteDoc, updateDo
 
 import { db } from '../../lib/firebase';
 import { DatePicker } from '../../components/DatePicker';
+import ConfirmModal from '../../components/ConfirmModal';
 
 
 interface Coupon {
@@ -40,6 +41,8 @@ export default function CuponesScreen() {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+  const [couponToDelete, setCouponToDelete] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   // Form State
@@ -172,17 +175,24 @@ export default function CuponesScreen() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    const confirmed = Platform.OS === 'web' 
-      ? window.confirm('¿Estás seguro de eliminar este cupón?')
-      : true; // In Native would use Alert.alert
+  const handleDelete = (id: string) => {
+    setCouponToDelete(id);
+    setIsDeleteModalVisible(true);
+  };
 
-    if (confirmed) {
-      try {
-        await deleteDoc(doc(db, 'Coupons', id));
-      } catch (error) {
-        console.error('Error deleting coupon:', error);
-      }
+  const confirmDelete = async () => {
+    if (!couponToDelete) return;
+    try {
+      setSaving(true);
+      await deleteDoc(doc(db, 'Coupons', couponToDelete));
+      setIsDeleteModalVisible(false);
+      setCouponToDelete(null);
+      showToast('¡Cupón eliminado!', 'success');
+    } catch (error) {
+      console.error('Error deleting coupon:', error);
+      showToast('Error al eliminar el cupón', 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -427,6 +437,16 @@ export default function CuponesScreen() {
           </View>
         </View>
       </Modal>
+      <ConfirmModal
+        visible={isDeleteModalVisible}
+        onClose={() => setIsDeleteModalVisible(false)}
+        title="¿Eliminar cupón?"
+        message="¿Estás seguro de que deseas eliminar este cupón? Los clientes ya no podrán usar este código."
+        confirmText="Sí, eliminar"
+        cancelText="No, cancelar"
+        loading={saving}
+        onConfirm={confirmDelete}
+      />
     </SafeAreaView>
   );
 }
